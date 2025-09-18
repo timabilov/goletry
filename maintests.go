@@ -150,7 +150,7 @@ func main() {
 		},
 		APNS: &messaging.APNSConfig{
 			FCMOptions: &messaging.APNSFCMOptions{
-				AnalyticsLabel: "lessnote",
+				AnalyticsLabel: "letryai",
 			},
 			Payload: &messaging.APNSPayload{
 				Aps: &messaging.Aps{
@@ -172,7 +172,7 @@ func main() {
 			// TTL: &oneHour,
 			Notification: &messaging.AndroidNotification{
 				Priority:  messaging.AndroidNotificationPriority(messaging.PriorityMax),
-				ChannelID: "lessnote-high-priority",
+				ChannelID: "letryai-high-priority",
 				// VibrateTimingMillis: ,
 				// Icon:     "stock_ticker_update",
 				// Color:    "#f45342",

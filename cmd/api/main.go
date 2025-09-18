@@ -25,11 +25,11 @@ func main() {
 	}
 	err := sentry.Init(sentry.ClientOptions{
 		// Either set your DSN here or set the SENTRY_DSN environment variable.
-		Dsn: "https://eebea6b875147cde5d2071479ec8c062@o4506513441685504.ingest.us.sentry.io/4509185560477696",
+		Dsn: "https://012e04723bb3df454f1a778966526212@o4506513441685504.ingest.us.sentry.io/4510042184351744",
 		// Either set environment and release here or set the SENTRY_ENVIRONMENT
 		// and SENTRY_RELEASE environment variables.
 		Environment: services.GetEnv("ENV", "local"),
-		Release:     "lessnotego@1.0.0",
+		Release:     "letryaigo@1.0.0",
 		// Enable printing of SDK debug messages.
 		// Useful when getting started or trying to figure something out.
 		Debug: false,

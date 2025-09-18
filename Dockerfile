@@ -7,6 +7,6 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o /usr/src/app/lessnote-api cmd/api/main.go
-RUN go build -o /usr/src/app/lessnote-worker cmd/worker/main.go
-ENTRYPOINT [ "./lessnote-api" ]
+RUN go build -o /usr/src/app/letryai-api cmd/api/main.go
+RUN go build -o /usr/src/app/letryai-worker cmd/worker/main.go
+ENTRYPOINT [ "./letryai-api" ]
