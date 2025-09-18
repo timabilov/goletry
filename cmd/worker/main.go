@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"lessnoteapi/dbhelper"
-	"lessnoteapi/services"
-	"lessnoteapi/tasks"
+	"letryapi/dbhelper"
+	"letryapi/services"
+	"letryapi/tasks"
 	"log"
 	"os"
 
@@ -56,8 +56,7 @@ func main() {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: os.Getenv("ASYNC_BROKER_ADDRESS")},
 		asynq.Config{Concurrency: 10, Queues: map[string]int{
-			"transcribe": 7, "generatestudy": 3, "default": 1,
-			"youtube": 2,
+			"generate": 7,
 		}},
 	)
 	awsService := &services.AWSService{}

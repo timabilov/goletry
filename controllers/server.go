@@ -5,8 +5,8 @@ import (
 	"embed"
 	"fmt"
 	"io"
-	"lessnoteapi/models"
-	"lessnoteapi/services"
+	"letryapi/models"
+	"letryapi/services"
 	"log"
 	"net/http"
 	"os"
@@ -105,22 +105,18 @@ func SetupServer(
 	companyGroup := e.Group("/company/:companyId", echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserCompanyMiddleware)
 	companyController.CompanyRoutes(companyGroup)
 
-	shopGroup := e.Group("shop", echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))))
-	shopGroup.Use(UserMiddleware)
+	generalGroup := e.Group("general", echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))))
+	generalGroup.Use(UserMiddleware)
 
 	// managed with public token or company id as param depending on settings!
 
 	profileController := ProfileController{}
-	profileGroup := shopGroup.Group("/profile")
+	profileGroup := generalGroup.Group("/profile")
+
 	profileController.ProfileRoutes(profileGroup)
-
-	userDataController := UserDataController{AWSService: awsService, FirebaseApp: firebaseApp}
-	userDataGroup := shopGroup.Group("/userdata")
-	userDataController.UserDataRoutes(userDataGroup)
-
-	noteController := NoteRoutes{AWSService: awsService, FirebaseApp: firebaseApp}
-	noteGroup := companyGroup.Group("/notes")
-	noteController.NoteRoutes(noteGroup)
+	clothingController := ClothesController{Google: googleService, AWSService: awsService, FirebaseApp: firebaseApp}
+	clothingGroup := companyGroup.Group("/clothes")
+	clothingController.ClothingRoutes(clothingGroup)
 
 	webhooksController := WebhooksController{Google: googleService, FirebaseApp: firebaseApp}
 	webhookGroup := e.Group("/webhooks")

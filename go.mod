@@ -1,4 +1,4 @@
-module lessnoteapi
+module letryapi
 
 go 1.23.0
 

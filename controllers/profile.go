@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"fmt"
-	"lessnoteapi/models"
+	"letryapi/models"
 	"net/http"
 
 	"github.com/labstack/echo/v4"

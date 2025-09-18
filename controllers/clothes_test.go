@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"testing"
 
-	"lessnoteapi/dbhelper"
-	"lessnoteapi/models"
-	"lessnoteapi/test"
+	"letryapi/dbhelper"
+	"letryapi/models"
+	"letryapi/test"
 
 	"github.com/hibiken/asynq"
 	"github.com/lib/pq"
@@ -42,7 +42,7 @@ func TestCreateNoteOk(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, rec.Code, "Expected status code 201 Created, got %d", rec.Body.String())
 
-	var response NoteResponse
+	var response ClothingResponse
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Equal(t, reqBody.Name, response.Name)
@@ -232,7 +232,7 @@ func TestGetNotesOk(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code, "Expected status code 200 OK, got %d: %s", rec.Code, rec.Body.String())
 
-	var response NotesResponse
+	var response ClothingListResponse
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Len(t, response.Notes, 2)
@@ -279,7 +279,7 @@ func TestGetNoteSingleOk(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code, "Expected status code 200 OK, got %d: %s", rec.Code, rec.Body.String())
 
-	var response NoteResponse
+	var response ClothingResponse
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Equal(t, response.ID, note1.ID)
@@ -330,7 +330,7 @@ func TestGetNoteSingleWithQuestionsOk(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code, "Expected status code 200 OK, got %d: %s", rec.Code, rec.Body.String())
 
-	var response NoteResponse
+	var response ClothingResponse
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Equal(t, response.ID, note1.ID)
@@ -379,7 +379,7 @@ func TestGetNotesWithFolderOk(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code, "Expected status code 200 OK, got %d: %s", rec.Code, rec.Body.String())
 
-	var response NotesResponse
+	var response ClothingListResponse
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Len(t, response.Notes, 1)

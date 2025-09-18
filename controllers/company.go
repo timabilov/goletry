@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"fmt"
-	"lessnoteapi/models"
-	"lessnoteapi/services"
+	"letryapi/models"
+	"letryapi/services"
 	"net/http"
 	"net/mail"
 	"time"

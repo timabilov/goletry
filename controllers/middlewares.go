@@ -3,7 +3,7 @@ package controllers
 import (
 	"errors"
 	"fmt"
-	"lessnoteapi/models"
+	"letryapi/models"
 	"log"
 	"net/http"
 

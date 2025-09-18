@@ -2,9 +2,9 @@ package controllers
 
 import (
 	"fmt"
-	"lessnoteapi/dbhelper"
-	"lessnoteapi/models"
-	"lessnoteapi/test"
+	"letryapi/dbhelper"
+	"letryapi/models"
+	"letryapi/test"
 	"net/http"
 	"net/http/httptest"
 	"testing"

@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"lessnoteapi/controllers"
-	"lessnoteapi/dbhelper"
-	"lessnoteapi/services"
-	"lessnoteapi/telegram"
+	"letryapi/controllers"
+	"letryapi/dbhelper"
+	"letryapi/services"
+	"letryapi/telegram"
 	"log"
 	"os"
 	"time"

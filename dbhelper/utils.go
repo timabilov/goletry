@@ -1,7 +1,7 @@
 package dbhelper
 
 import (
-	"lessnoteapi/models"
+	"letryapi/models"
 	"log"
 
 	"gorm.io/gorm"

@@ -2,20 +2,6 @@ package models
 
 import "time"
 
-type Player struct {
-	JsonModel
-	Username         string   `json:"username"`
-	DeviceId         string   `json:"-" gorm:"unique;default:gen_random_uuid()"`
-	Color            string   `gorm:"default:#FFFFFF" json:"color"`
-	Wins             uint     `json:"wins"`
-	Banned           bool     `gorm:"default:false" json:"-"`
-	LastIp           string   `json:"-"`
-	GoogleID         string   `json:"-"`
-	FacebookID       string   `json:"-"`
-	Platform         Platform `sql:"type:ENUM('ios', 'android', 'web')" json:"platform"`
-	TelegramUsername string   `json:"telegram_username"`
-}
-
 type UserAccount struct {
 	JsonModel
 	Name     string `json:"name"`
@@ -33,7 +19,6 @@ type UserAccount struct {
 	Memberships         []UserCompanyRole `gorm:"foreignKey:UserAccountID"`
 	AdminInCompanys     []Company         `gorm:"foreignKey:OwnerID"`
 	TelegramUsername    string            `json:"telegram_username"`
-	AvatarUrl           string            `json:"avatar_url"`
 	Subscription        *string           `json:"subscription"`
 	ExpirationDate      *time.Time        `json:"-"`
 	ConfirmedDeleteDate *time.Time        `json:"-"`
@@ -41,6 +26,8 @@ type UserAccount struct {
 	ReceiveNotifications bool `json:"receive_notifications"`
 	// mainly for LLM models token explanation etc
 	IsSuperadmin bool `json:"is_superadmin"`
+	// user avatar for try ons!
+	AvatarURL *string `json:"avatar_url"`
 	// Active                    bool `json:"active"`
 }
 
@@ -77,22 +64,23 @@ type UserCompanyRole struct {
 
 type Company struct {
 	JsonModel
-	Name                         string            `json:"name"`
-	Address                      *string           `json:"address"`
-	ImageUrl                     *string           `json:"image_url"`
-	Owner                        UserAccount       `json:"-"`
-	OwnerID                      uint              `json:"-"`
-	Subscription                 Subscription      `json:"subscription"`
-	TrialStartedDate             *int64            `json:"trial_started_date"`
-	TrialDays                    *uint             `json:"trial_days"`
-	Members                      []UserCompanyRole `json:"members"`
-	Currency                     string            `json:"currency"`
-	Language                     string            `json:"language"`
-	Active                       bool              `json:"active"`
-	EnforcedDailyNoteLimit       *int32            `json:"enforced_daily_note_limit"`
-	EnforcedDailyAudioHoursLimit *int32            `json:"enforced_daily_audio_hours_limit"`
-	EnforcedLLMModel             *int32            `json:"enforced_llm_model"`
-	FullAdminAccess              bool              `json:"full_admin_access"`
+	Name                       string            `json:"name"`
+	Address                    *string           `json:"address"`
+	ImageUrl                   *string           `json:"image_url"`
+	Owner                      UserAccount       `json:"-"`
+	OwnerID                    uint              `json:"-"`
+	Subscription               Subscription      `json:"subscription"`
+	TrialStartedDate           *int64            `json:"trial_started_date"`
+	TrialDays                  *uint             `json:"trial_days"`
+	Members                    []UserCompanyRole `json:"members"`
+	Currency                   string            `json:"currency"`
+	Language                   string            `json:"language"`
+	Active                     bool              `json:"active"`
+	EnforcedDailyNoteLimit     *int32            `json:"enforced_daily_note_limit"`
+	EnforcedDailyClothingLimit *int32            `json:"enforced_daily_clothing_limit"`
+	EnforcedDailyTryOnLimit    *int32            `json:"enforced_daily_try_on_limit"`
+	EnforcedLLMModel           *int32            `json:"enforced_llm_model"`
+	FullAdminAccess            bool              `json:"full_admin_access"`
 }
 
 type CompanySubscription struct {

@@ -2,8 +2,8 @@ package dbhelper
 
 import (
 	"fmt"
-	"lessnoteapi/models"
-	"lessnoteapi/services"
+	"letryapi/models"
+	"letryapi/services"
 	"os"
 	"time"
 

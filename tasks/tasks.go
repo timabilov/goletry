@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"lessnoteapi/models"
-	"lessnoteapi/services"
+	"letryapi/models"
+	"letryapi/services"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,8 +22,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type NoteProcessingPayload struct {
-	NoteID uint `json:"note_id"`
+type TryOnGenerationPayload struct {
+	TryOnID uint `json:"try_on_id"`
+}
+type ClothingGenerationPayload struct {
+	ClothingId uint `json:"clothing_id"`
 }
 
 // Client initializes an asynq client for enqueuing tasks
@@ -32,27 +35,27 @@ func NewClient() (*asynq.Client, error) {
 }
 
 // EnqueueTranscribeNote enqueues a note for processing
-func NewTranscribeNoteTask(noteID uint) (*asynq.Task, error) {
-	payload, err := json.Marshal(NoteProcessingPayload{NoteID: noteID})
+func NewTryOnGenerationTask(tryOnID uint) (*asynq.Task, error) {
+	payload, err := json.Marshal(TryOnGenerationPayload{TryOnID: tryOnID})
 	if err != nil {
 		return nil, err
 	}
-	return asynq.NewTask("transcribe:note", payload), nil
+	return asynq.NewTask("generate:tryon", payload), nil
 
 }
 
-func NewStudyGenerationeNoteTask(noteID uint) (*asynq.Task, error) {
-	payload, err := json.Marshal(NoteProcessingPayload{NoteID: noteID})
+func NewClothingProcessingTask(clothingId uint) (*asynq.Task, error) {
+	payload, err := json.Marshal(ClothingGenerationPayload{ClothingId: clothingId})
 	if err != nil {
 		return nil, err
 	}
-	return asynq.NewTask("generatestudy:note", payload), nil
+	return asynq.NewTask("generate:process_clothing", payload), nil
 
 }
 
 // EnqueueTranscribeNote enqueues a note for processing
 func NewExtractYoutubeAudioTask(noteID uint) (*asynq.Task, error) {
-	payload, err := json.Marshal(NoteProcessingPayload{NoteID: noteID})
+	payload, err := json.Marshal(TryOnGenerationPayload{TryOnID: noteID})
 	if err != nil {
 		return nil, err
 	}
@@ -162,23 +165,23 @@ func readYoutubeResultRapidLinkMD5Hash(link, rapidAPIUsername string) (*http.Res
 
 // HandleDownloadYoutubeTask processes YouTube download tasks using RapidAPI
 func HandleDownloadYoutubeTask(ctx context.Context, t *asynq.Task, db *gorm.DB, transcriber services.LLMNoteProcessor, awsService services.AWSServiceProvider) error {
-	var payload NoteProcessingPayload
+	var payload TryOnGenerationPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return err
 	}
-	fmt.Printf("[Note: %v] Youtube Processing\n", payload.NoteID)
+	fmt.Printf("[Note: %v] Youtube Processing\n", payload.TryOnID)
 
 	// Retrieve note from database
 	var note models.Note
-	res := db.First(&note, payload.NoteID)
+	res := db.First(&note, payload.TryOnID)
 	if res.Error != nil {
-		sentry.CaptureException(fmt.Errorf("[QUEUE] Youtube Error on retrieving note for processing %v", payload.NoteID))
+		sentry.CaptureException(fmt.Errorf("[QUEUE] Youtube Error on retrieving note for processing %v", payload.TryOnID))
 		return res.Error
 	}
 
 	if note.YoutubeUrl == nil {
-		sentry.CaptureException(fmt.Errorf("[Note: %v] Youtube URL is nil", payload.NoteID))
-		return fmt.Errorf("[Note: %v] Youtube URL is nil, cannot proceed", payload.NoteID)
+		sentry.CaptureException(fmt.Errorf("[Note: %v] Youtube URL is nil", payload.TryOnID))
+		return fmt.Errorf("[Note: %v] Youtube URL is nil, cannot proceed", payload.TryOnID)
 	}
 
 	// Extract YouTube ID
@@ -200,8 +203,8 @@ func HandleDownloadYoutubeTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 	for {
 		status, ok := response["status"].(string)
 		if !ok {
-			fmt.Printf("[Note: %v] Youtube Error on getting status from response: %v\n", payload.NoteID, response)
-			err := fmt.Errorf("[Note: %v] Youtube Error on getting status from response: %v", payload.NoteID, response)
+			fmt.Printf("[Note: %v] Youtube Error on getting status from response: %v\n", payload.TryOnID, response)
+			err := fmt.Errorf("[Note: %v] Youtube Error on getting status from response: %v", payload.TryOnID, response)
 			sentry.CaptureException(err)
 			return err
 		}
@@ -212,26 +215,26 @@ func HandleDownloadYoutubeTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 				saveNoteProcessingFail(db, note, "Long audio of more than 2 hr duration are not allowed", false)
 				return nil
 			}
-			fmt.Printf("[Note: %v] Youtube Error on getting status from response: %v %s\n", payload.NoteID, response, msg)
-			err := fmt.Errorf("[Note: %v] Youtube Error on getting status from response: %v %s", payload.NoteID, response, msg)
+			fmt.Printf("[Note: %v] Youtube Error on getting status from response: %v %s\n", payload.TryOnID, response, msg)
+			err := fmt.Errorf("[Note: %v] Youtube Error on getting status from response: %v %s", payload.TryOnID, response, msg)
 			sentry.CaptureException(err)
 			return err
 		}
 
 		if status == "ok" {
-			fmt.Printf("[Note: %v] Youtube Download finished successfully %v \n", payload.NoteID, response)
+			fmt.Printf("[Note: %v] Youtube Download finished successfully %v \n", payload.TryOnID, response)
 			break
 		}
 		// no more than minute
 		if time.Now().After(deadline) {
-			err := fmt.Errorf("[Note: %v] Youtube polling timeout after 60 seconds, last status: %v", payload.NoteID, response)
-			fmt.Printf("[Note: %v] Youtube polling timeout after 60 seconds: last status: %v \n", payload.NoteID, response)
+			err := fmt.Errorf("[Note: %v] Youtube polling timeout after 60 seconds, last status: %v", payload.TryOnID, response)
+			fmt.Printf("[Note: %v] Youtube polling timeout after 60 seconds: last status: %v \n", payload.TryOnID, response)
 			sentry.CaptureException(err)
 			return err
 		}
 		progress, ok := response["progress"].(float64)
 		if ok {
-			fmt.Printf("[Note: %v] Youtube Download progress: %.2f%%\n", payload.NoteID, progress)
+			fmt.Printf("[Note: %v] Youtube Download progress: %.2f%%\n", payload.TryOnID, progress)
 		}
 
 		// Wait before polling again
@@ -249,23 +252,23 @@ func HandleDownloadYoutubeTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 	}
 	duration, ok := response["duration"].(float64)
 	if !ok {
-		fmt.Printf("[Note: %v] Youtube Error on getting duration from response: %v\n", payload.NoteID, response)
-		err := fmt.Errorf("[Note: %v] Youtube Error on getting duration from response: %v", payload.NoteID, response)
+		fmt.Printf("[Note: %v] Youtube Error on getting duration from response: %v\n", payload.TryOnID, response)
+		err := fmt.Errorf("[Note: %v] Youtube Error on getting duration from response: %v", payload.TryOnID, response)
 		sentry.CaptureException(err)
 	} else {
 		note.TotalDuration = &duration
 	}
 	title, ok := response["title"].(string)
 	if !ok {
-		fmt.Printf("[Note: %v] Youtube Error on getting title from response: %v\n", payload.NoteID, response)
-		err := fmt.Errorf("[Note: %v] Youtube Error on getting title from response: %v", payload.NoteID, response)
+		fmt.Printf("[Note: %v] Youtube Error on getting title from response: %v\n", payload.TryOnID, response)
+		err := fmt.Errorf("[Note: %v] Youtube Error on getting title from response: %v", payload.TryOnID, response)
 		sentry.CaptureException(err)
 	} else {
 
 		note.Name = title
 	}
 	if err := db.Omit("alert_when_processed").Save(&note).Error; err != nil {
-		fmt.Printf("[Note: %v] Youtube Error on initial saving note %v\n", payload.NoteID, err)
+		fmt.Printf("[Note: %v] Youtube Error on initial saving note %v\n", payload.TryOnID, err)
 		sentry.CaptureException(err)
 		return err
 	}
@@ -310,15 +313,15 @@ func HandleDownloadYoutubeTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 
 	fileBytes, err := os.ReadFile(fileName)
 	if err != nil {
-		fmt.Printf("[Note: %v] Youtube Error on reading file %s: %v\n", payload.NoteID, fileName, err)
+		fmt.Printf("[Note: %v] Youtube Error on reading file %s: %v\n", payload.TryOnID, fileName, err)
 		sentry.CaptureException(err)
 		return err
 	}
 
 	respBody, statusCode, err := awsService.UploadToPresignedURL(context.Background(), bucketName, uploadUrl, fileBytes)
-	fmt.Printf("[Note: %v] Youtube %s R2 Upload file size %v, url %s, response body: %s, status code: %d\n", payload.NoteID, *note.YoutubeUrl, len(fileBytes), uploadUrl, respBody, statusCode)
+	fmt.Printf("[Note: %v] Youtube %s R2 Upload file size %v, url %s, response body: %s, status code: %d\n", payload.TryOnID, *note.YoutubeUrl, len(fileBytes), uploadUrl, respBody, statusCode)
 	if err != nil || statusCode != 200 {
-		fmt.Printf("[Note: %v] Youtube Error on uploading file %s: %v\n", payload.NoteID, fileName, err)
+		fmt.Printf("[Note: %v] Youtube Error on uploading file %s: %v\n", payload.TryOnID, fileName, err)
 		sentry.CaptureException(err)
 		return err
 	}
@@ -329,18 +332,18 @@ func HandleDownloadYoutubeTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 	note.YoutubeId = &youtubeID
 
 	if err := db.Omit("alert_when_processed").Save(&note).Error; err != nil {
-		fmt.Printf("[Note: %v] Youtube Error on saving note %v\n", payload.NoteID, err)
+		fmt.Printf("[Note: %v] Youtube Error on saving note %v\n", payload.TryOnID, err)
 		sentry.CaptureException(err)
 		return err
 	}
 
-	fmt.Printf("[Note: %v] Youtube Download finished successfully\n", payload.NoteID)
+	fmt.Printf("[Note: %v] Youtube Download finished successfully\n", payload.TryOnID)
 
 	// Enqueue transcription task
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: os.Getenv("ASYNC_BROKER_ADDRESS")})
 	if asynqClient == nil {
 		err := fmt.Errorf("failed to create asynq client")
-		fmt.Printf("[Note: %v] Youtube Error on creating asynq client %v\n", payload.NoteID, err)
+		fmt.Printf("[Note: %v] Youtube Error on creating asynq client %v\n", payload.TryOnID, err)
 		sentry.CaptureException(err)
 		return err
 	}
@@ -348,18 +351,18 @@ func HandleDownloadYoutubeTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 
 	noteTranscribeTask, err := NewTranscribeNoteTask(note.ID)
 	if err != nil {
-		fmt.Printf("[Note: %v] Youtube error on creating transcribe task %v\n", payload.NoteID, err)
+		fmt.Printf("[Note: %v] Youtube error on creating transcribe task %v\n", payload.TryOnID, err)
 		sentry.CaptureException(err)
 		return err
 	}
 
 	taskInfo, err := asynqClient.Enqueue(noteTranscribeTask, asynq.MaxRetry(3), asynq.ProcessIn(1*time.Second), asynq.Queue("transcribe"))
 	if err != nil {
-		fmt.Printf("[Note: %v] Youtube error on enqueuing transcribe task %v\n", payload.NoteID, err)
+		fmt.Printf("[Note: %v] Youtube error on enqueuing transcribe task %v\n", payload.TryOnID, err)
 		sentry.CaptureException(err)
 		return err
 	}
-	fmt.Printf("[Note: %v] Youtube transcribe task enqueued: %s\n", payload.NoteID, taskInfo.ID)
+	fmt.Printf("[Note: %v] Youtube transcribe task enqueued: %s\n", payload.TryOnID, taskInfo.ID)
 
 	return nil
 }
@@ -516,78 +519,78 @@ func HandleInitialProcessNoteTask(
 		sentry.CaptureException(fmt.Errorf("[QUEUE] %s Google API key is not set", string(t.Payload())))
 		return fmt.Errorf("[QUEUE] %s Google API key is not set", string(t.Payload()))
 	}
-	var payload NoteProcessingPayload
+	var payload TryOnGenerationPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return err
 	}
-	fmt.Printf("[Note: %v] Start Processing\n", payload.NoteID)
+	fmt.Printf("[Note: %v] Start Processing\n", payload.TryOnID)
 	var note models.Note
-	res := db.Joins("Company").First(&note, payload.NoteID)
+	res := db.Joins("Company").First(&note, payload.TryOnID)
 	if res.Error != nil {
-		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on retrieving note for processing %v", payload.NoteID))
+		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on retrieving note for processing %v", payload.TryOnID))
 		return res.Error
 	}
 	if note.NoteType == nil {
 		saveNoteProcessingFail(db, note, "Failed to identify note type, please try to create new note", false)
-		sentry.CaptureException(fmt.Errorf("[Note: %v] Error on getting note type", payload.NoteID))
-		return fmt.Errorf("[Note: %v] Error on getting note type", payload.NoteID)
+		sentry.CaptureException(fmt.Errorf("[Note: %v] Error on getting note type", payload.TryOnID))
+		return fmt.Errorf("[Note: %v] Error on getting note type", payload.TryOnID)
 	}
 	fileBytes, fileName, err := getFileForNote(awsService, note)
 	if *note.NoteType != "youtube" && note.FileUrl != nil && err != nil {
 		saveNoteProcessingFail(db, note, "Failed to read note file, please try to create new note", false)
-		sentry.CaptureException(fmt.Errorf("[Note: %v] File path exists, but error on getting file %s: %v", payload.NoteID, *note.FileUrl, err))
+		sentry.CaptureException(fmt.Errorf("[Note: %v] File path exists, but error on getting file %s: %v", payload.TryOnID, *note.FileUrl, err))
 		return err
 	}
-	fmt.Printf("[Note: %v] Downloaded file size: %d bytes\n", payload.NoteID, len(fileBytes))
+	fmt.Printf("[Note: %v] Downloaded file size: %d bytes\n", payload.TryOnID, len(fileBytes))
 	var noteLLMResponseText string
 	var noteLLMResponse *services.LLMResponse
 
 	fmt.Printf("[Note: %v] Type: %s\n", note.ID, *note.NoteType)
 
-	fmt.Printf("[Note: %v] Transcribing..\n", payload.NoteID)
+	fmt.Printf("[Note: %v] Transcribing..\n", payload.TryOnID)
 	model := services.Flash25
 	modelString := model.String()
 	if note.Company.EnforcedLLMModel != nil {
 		model = services.LLMModelName(*note.Company.EnforcedLLMModel)
 		modelString = model.String()
-		fmt.Printf("[Note: %v] [ENFORCE MODEL] Using enforced model: %s\n", payload.NoteID, model.String())
+		fmt.Printf("[Note: %v] [ENFORCE MODEL] Using enforced model: %s\n", payload.TryOnID, model.String())
 	}
 
-	fmt.Printf("[Note: %v] Model: %s\n", payload.NoteID, modelString)
+	fmt.Printf("[Note: %v] Model: %s\n", payload.TryOnID, modelString)
 	// }
 
 	if note.NoteType == nil {
-		sentry.CaptureException(fmt.Errorf("[Note: %v] Error on getting note type", payload.NoteID))
-		return fmt.Errorf("[Note: %v] Error on getting note type", payload.NoteID)
+		sentry.CaptureException(fmt.Errorf("[Note: %v] Error on getting note type", payload.TryOnID))
+		return fmt.Errorf("[Note: %v] Error on getting note type", payload.TryOnID)
 	} else if *note.NoteType == "text" {
 		if note.Transcript == nil {
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Text note Error on getting note transcript to analyze note text", payload.NoteID))
-			return fmt.Errorf("[Note: %v] Text note Error on getting note transcript to analyze note text", payload.NoteID)
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Text note Error on getting note transcript to analyze note text", payload.TryOnID))
+			return fmt.Errorf("[Note: %v] Text note Error on getting note transcript to analyze note text", payload.TryOnID)
 		}
 		noteLLMResponse, err = transcriber.TextParse(*note.Transcript, model)
 		if err != nil {
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Error on transcribing audio %s: %v", payload.NoteID, *note.FileUrl, err))
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Error on transcribing audio %s: %v", payload.TryOnID, *note.FileUrl, err))
 			return err
 		}
 		if noteLLMResponse == nil {
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing audio %s: %v", payload.NoteID, *note.FileUrl, err))
-			return fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing %s: %v", payload.NoteID, *note.FileUrl, err)
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing audio %s: %v", payload.TryOnID, *note.FileUrl, err))
+			return fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing %s: %v", payload.TryOnID, *note.FileUrl, err)
 		}
 		noteLLMResponseText = noteLLMResponse.Response
 	} else if *note.NoteType == "test" {
 		if note.Transcript == nil || fileBytes == nil {
-			sentry.CaptureException(fmt.Errorf("[Note: %v] [Test] Note doesn't have neither transcript nor image to analyze", payload.NoteID))
-			return fmt.Errorf("[Note: %v] [Test] Note doesn't have neither transcript nor image to analyze", payload.NoteID)
+			sentry.CaptureException(fmt.Errorf("[Note: %v] [Test] Note doesn't have neither transcript nor image to analyze", payload.TryOnID))
+			return fmt.Errorf("[Note: %v] [Test] Note doesn't have neither transcript nor image to analyze", payload.TryOnID)
 		}
 		tempImagePaths := []string{}
 		if fileBytes != nil {
 
-			tempImagePaths, err = services.ExtractZipImages(fileBytes, fileName, payload.NoteID)
+			tempImagePaths, err = services.ExtractZipImages(fileBytes, fileName, payload.TryOnID)
 			if err != nil {
-				sentry.CaptureException(fmt.Errorf("[Note: %v] Error extracting images from zip %s: %v", payload.NoteID, *note.FileUrl, err))
+				sentry.CaptureException(fmt.Errorf("[Note: %v] Error extracting images from zip %s: %v", payload.TryOnID, *note.FileUrl, err))
 				return err
 			}
-			fmt.Printf("[Note: %v] Extracted zip image paths %v:", payload.NoteID, tempImagePaths)
+			fmt.Printf("[Note: %v] Extracted zip image paths %v:", payload.TryOnID, tempImagePaths)
 		}
 		defer func() {
 			for _, path := range tempImagePaths {
@@ -602,7 +605,7 @@ func HandleInitialProcessNoteTask(
 		// create temporary file with filename and given file bytes then return file path
 		filePath, err := services.CreateTempFile(fileBytes, fileName)
 		if err != nil {
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Error on creating temp file %s: %v", payload.NoteID, fileName, err))
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Error on creating temp file %s: %v", payload.TryOnID, fileName, err))
 			return err
 		}
 		defer os.Remove(filePath)
@@ -615,50 +618,50 @@ func HandleInitialProcessNoteTask(
 		if err != nil {
 			if strings.Contains(err.Error(), "content violation") {
 				saveNoteProcessingFail(db, note, "Sorry, it seems that this Youtube audio contains violated content that we cannot process.", false)
-				sentry.CaptureException(fmt.Errorf("[Note: %v] Content violation on transcribing youtube audio %s: %v", payload.NoteID, *note.FileUrl, err))
+				sentry.CaptureException(fmt.Errorf("[Note: %v] Content violation on transcribing youtube audio %s: %v", payload.TryOnID, *note.FileUrl, err))
 				return nil
 			}
-			fmt.Printf("[Note: %v] Error on transcribing youtube audio %v: %v\n", payload.NoteID, *note.FileUrl, err)
+			fmt.Printf("[Note: %v] Error on transcribing youtube audio %v: %v\n", payload.TryOnID, *note.FileUrl, err)
 			saveNoteProcessingFail(db, note, "Sorry, we failed to analyze this Youtube audio, please try to create new note or contact support", true)
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Error on transcribing youtube audio  %s: %v", payload.NoteID, *note.FileUrl, err))
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Error on transcribing youtube audio  %s: %v", payload.TryOnID, *note.FileUrl, err))
 			return err
 		}
 		if noteLLMResponse == nil {
-			fmt.Printf("[Note: %v] Error on transcribing youtube audio %v: %v\n", payload.NoteID, *note.FileUrl, err)
+			fmt.Printf("[Note: %v] Error on transcribing youtube audio %v: %v\n", payload.TryOnID, *note.FileUrl, err)
 			saveNoteProcessingFail(db, note, "Sorry, we failed to analyze this Youtube audio, please try to create new note or contact support", true)
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing  %s: %v", payload.NoteID, *note.FileUrl, err))
-			return fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing %s: %v", payload.NoteID, *note.FileUrl, err)
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing  %s: %v", payload.TryOnID, *note.FileUrl, err))
+			return fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing %s: %v", payload.TryOnID, *note.FileUrl, err)
 		}
 		if noteLLMResponse == nil {
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing audio %s: %v", payload.NoteID, *note.FileUrl, err))
-			return fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing %s: %v", payload.NoteID, *note.FileUrl, err)
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing audio %s: %v", payload.TryOnID, *note.FileUrl, err))
+			return fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing %s: %v", payload.TryOnID, *note.FileUrl, err)
 		}
 		noteLLMResponseText = noteLLMResponse.Response
 	} else {
-		fmt.Printf("[Note: %v] Note type %s\n", payload.NoteID, *note.NoteType)
-		tempDocumentPaths, userTranscript, err := services.ExtractZipMaterialFiles(fileBytes, fileName, payload.NoteID)
+		fmt.Printf("[Note: %v] Note type %s\n", payload.TryOnID, *note.NoteType)
+		tempDocumentPaths, userTranscript, err := services.ExtractZipMaterialFiles(fileBytes, fileName, payload.TryOnID)
 		for _, path := range tempDocumentPaths {
 			// clean defer file after processing
 			defer func(path string) {
 				if err := os.Remove(path); err != nil {
-					fmt.Printf("[Note: %v] Error removing temporary file %s: %v\n", payload.NoteID, path, err)
+					fmt.Printf("[Note: %v] Error removing temporary file %s: %v\n", payload.TryOnID, path, err)
 				} else {
-					fmt.Printf("[Note: %v] Successfully removed temporary file %s\n", payload.NoteID, path)
+					fmt.Printf("[Note: %v] Successfully removed temporary file %s\n", payload.TryOnID, path)
 				}
 			}(path)
 
 		}
 		if err != nil {
 			saveNoteProcessingFail(db, note, "Failed to read your note files, please try to create new note", true)
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Error extracting documents from zip %s: %v", payload.NoteID, *note.FileUrl, err))
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Error extracting documents from zip %s: %v", payload.TryOnID, *note.FileUrl, err))
 			return err
 		}
-		fmt.Printf("[Note: %v] Extracted zip document paths %v:", payload.NoteID, tempDocumentPaths)
+		fmt.Printf("[Note: %v] Extracted zip document paths %v:", payload.TryOnID, tempDocumentPaths)
 		note.NoteType = services.StrPointer(services.DetermineNoteType(tempDocumentPaths))
 		if db.Omit("alert_when_processed").Save(&note).Error != nil {
-			fmt.Printf("[Note: %v] Error on saving note mid type detect %v", payload.NoteID, err)
+			fmt.Printf("[Note: %v] Error on saving note mid type detect %v", payload.TryOnID, err)
 			saveNoteProcessingFail(db, note, "Failed to determine note type, please try to create new note", true)
-			sentry.CaptureException(fmt.Errorf("[Note: %v] Error on saving note mid type detect %v", payload.NoteID, err))
+			sentry.CaptureException(fmt.Errorf("[Note: %v] Error on saving note mid type detect %v", payload.TryOnID, err))
 		}
 		defer func() {
 			for _, path := range tempDocumentPaths {
@@ -673,21 +676,21 @@ func HandleInitialProcessNoteTask(
 			}
 			noteLLMResponse, err = transcriber.DocumentsParse(tempDocumentPaths, userTranscript, services.Flash25, language)
 			if err != nil {
-				fmt.Printf("[Note: %v] Error on transcribing documents %v: %v\n", payload.NoteID, tempDocumentPaths, err)
+				fmt.Printf("[Note: %v] Error on transcribing documents %v: %v\n", payload.TryOnID, tempDocumentPaths, err)
 				if strings.Contains(err.Error(), "content violation") {
 					saveNoteProcessingFail(db, note, "Sorry, it seems that this note contains violated content that we cannot process.", false)
-					sentry.CaptureException(fmt.Errorf("[Note: %v] Content violation on transcribing note %s: %v", payload.NoteID, *note.FileUrl, err))
+					sentry.CaptureException(fmt.Errorf("[Note: %v] Content violation on transcribing note %s: %v", payload.TryOnID, *note.FileUrl, err))
 					return nil
 				}
 				saveNoteProcessingFail(db, note, "Failed to transribe your note, please try to create new note", true)
-				sentry.CaptureException(fmt.Errorf("[Note: %v] Error on transcribing documents %s: %v", payload.NoteID, *note.FileUrl, err))
+				sentry.CaptureException(fmt.Errorf("[Note: %v] Error on transcribing documents %s: %v", payload.TryOnID, *note.FileUrl, err))
 				return err
 			}
 			if noteLLMResponse == nil {
-				fmt.Printf("[Note: %v] Response is nil but no error provided on transcribing %v: %v\n", payload.NoteID, tempDocumentPaths, err)
+				fmt.Printf("[Note: %v] Response is nil but no error provided on transcribing %v: %v\n", payload.TryOnID, tempDocumentPaths, err)
 				saveNoteProcessingFail(db, note, "Failed to transribe your note, please try to create new note", true)
-				sentry.CaptureException(fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing documents %v: %v", payload.NoteID, tempDocumentPaths, err))
-				return fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing documents %s: %v", payload.NoteID, *note.FileUrl, err)
+				sentry.CaptureException(fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing documents %v: %v", payload.TryOnID, tempDocumentPaths, err))
+				return fmt.Errorf("[Note: %v] Response is nil but no error provided on transcribing documents %s: %v", payload.TryOnID, *note.FileUrl, err)
 			}
 			noteLLMResponseText = noteLLMResponse.Response
 
@@ -698,14 +701,14 @@ func HandleInitialProcessNoteTask(
 	}
 	cleanNoteContent := cleanAIResponseText(noteLLMResponseText)
 	// content is json read attributes
-	fmt.Printf("[Note: %v] LLM Processed: %q, IT: %d, OT: %d, TT: %d, TOT: %d, Thoughts: %s..\n", payload.NoteID, cleanNoteContent, noteLLMResponse.InputTokenCount, noteLLMResponse.OutputTokenCount, noteLLMResponse.ThoughtsTokenCount, noteLLMResponse.TotalTokenCount, noteLLMResponse.Thoughts)
+	fmt.Printf("[Note: %v] LLM Processed: %q, IT: %d, OT: %d, TT: %d, TOT: %d, Thoughts: %s..\n", payload.TryOnID, cleanNoteContent, noteLLMResponse.InputTokenCount, noteLLMResponse.OutputTokenCount, noteLLMResponse.ThoughtsTokenCount, noteLLMResponse.TotalTokenCount, noteLLMResponse.Thoughts)
 	var parsedNoteData services.NoteTranscribeResponse
 	if err := json.Unmarshal([]byte(cleanNoteContent), &parsedNoteData); err != nil {
 		fmt.Println(err)
-		fmt.Printf("[Note: %v] Error on parsing Gemini %s AI json %s", payload.NoteID, model.String(), noteLLMResponseText)
+		fmt.Printf("[Note: %v] Error on parsing Gemini %s AI json %s", payload.TryOnID, model.String(), noteLLMResponseText)
 		note.FailedToProcessLLMNoteResponse = cleanNoteContent
 		saveNoteProcessingFail(db, note, "Failed to transcribe note content, please try again later", true)
-		sentry.CaptureException(fmt.Errorf("[Note: %v] Error on parsing Gemini %s AI json %s", payload.NoteID, services.Pro25, noteLLMResponseText))
+		sentry.CaptureException(fmt.Errorf("[Note: %v] Error on parsing Gemini %s AI json %s", payload.TryOnID, services.Pro25, noteLLMResponseText))
 		return err
 	}
 	parsedNoteData.Transcription = cleanAIResponseSeparateFieldsText(parsedNoteData.Transcription)
@@ -730,15 +733,15 @@ func HandleInitialProcessNoteTask(
 	note.ProcessingErrorMessage = nil
 	tx := db.Omit("alert_when_processed").Save(&note)
 	if tx.Error != nil {
-		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on saving note %v", payload.NoteID))
+		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on saving note %v", payload.TryOnID))
 		return tx.Error
 	}
-	fmt.Printf("[Note: %v] Transcribing finished succesfully..", payload.NoteID)
+	fmt.Printf("[Note: %v] Transcribing finished succesfully..", payload.TryOnID)
 	if note.AlertWhenProcessed {
-		fmt.Printf("[Note: %v] Sending notification to user %v\n", payload.NoteID, note.OwnerID)
+		fmt.Printf("[Note: %v] Sending notification to user %v\n", payload.TryOnID, note.OwnerID)
 		services.SendNotification(fbApp, db, note.OwnerID, "Note Transcription Completed", fmt.Sprintf("Your note %s has been transcribed", note.Name), map[string]string{"note_id": fmt.Sprintf("%d", note.ID), "type": "note_transcribed"})
 	} else {
-		fmt.Printf("[Note: %v] AlertWhenProcessed is false, not sending notification to user %v\n", payload.NoteID, note.OwnerID)
+		fmt.Printf("[Note: %v] AlertWhenProcessed is false, not sending notification to user %v\n", payload.TryOnID, note.OwnerID)
 	}
 	// Save result back to database
 	return nil
@@ -746,26 +749,26 @@ func HandleInitialProcessNoteTask(
 
 // Generates study material
 func HandleGeneratStudyForNoteTask(ctx context.Context, t *asynq.Task, db *gorm.DB, transcriber services.LLMNoteProcessor, awsService services.AWSServiceProvider) error {
-	var payload NoteProcessingPayload
+	var payload TryOnGenerationPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return err
 	}
-	fmt.Printf("[Material Note: %v] Start Processing\n", payload.NoteID)
+	fmt.Printf("[Material Note: %v] Start Processing\n", payload.TryOnID)
 	// Fetch note from database
 
 	var note models.Note
-	res := db.First(&note, payload.NoteID)
+	res := db.First(&note, payload.TryOnID)
 	if res.Error != nil {
-		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on retrieving note for processing %v", payload.NoteID))
+		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on retrieving note for processing %v", payload.TryOnID))
 		return res.Error
 	}
 	if note.QuizStatus == "generated" {
-		fmt.Printf("[Material Note: %v] Quiz already generated\n", payload.NoteID)
+		fmt.Printf("[Material Note: %v] Quiz already generated\n", payload.TryOnID)
 		return nil
 	}
 	if note.QuizStatus != "in_progress" && note.QuizStatus != "failed" {
-		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Quiz is not ready for generation: %s %s", payload.NoteID, note.Status, *note.NoteType))
-		return fmt.Errorf("[Material Note: %v] Quiz is not ready for generation: %s %s", payload.NoteID, note.Status, *note.NoteType)
+		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Quiz is not ready for generation: %s %s", payload.TryOnID, note.Status, *note.NoteType))
+		return fmt.Errorf("[Material Note: %v] Quiz is not ready for generation: %s %s", payload.TryOnID, note.Status, *note.NoteType)
 	}
 
 	model := services.Flash25
@@ -773,27 +776,27 @@ func HandleGeneratStudyForNoteTask(ctx context.Context, t *asynq.Task, db *gorm.
 		model = services.Pro25
 	}
 	modelString := model.String()
-	fmt.Printf("[Material Note: %v] Model: %s\n", payload.NoteID, modelString)
+	fmt.Printf("[Material Note: %v] Model: %s\n", payload.TryOnID, modelString)
 	noteLLMResponse, err := transcriber.GenerateQuizAndFlashCards(*note.Transcript, *note.NoteType == "test", model, note.Language)
 	if err != nil {
-		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Error on generating study material %s: %v", payload.NoteID, *note.FileUrl, err))
+		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Error on generating study material %s: %v", payload.TryOnID, *note.FileUrl, err))
 		saveFailQuizNote(db, note, "Failed to generate study material, please try again", true)
 		return err
 	}
 	noteLLMResponseText := noteLLMResponse.Response
 	if noteLLMResponseText == "" {
-		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Response is nil but no error provided on generating study material %s: %v", payload.NoteID, *note.FileUrl, err))
+		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Response is nil but no error provided on generating study material %s: %v", payload.TryOnID, *note.FileUrl, err))
 		saveFailQuizNote(db, note, "Failed to generate study material, please try again", true)
-		return fmt.Errorf("[Material Note: %v] Response is nil but no error provided on generating study material %s: %v", payload.NoteID, *note.FileUrl, err)
+		return fmt.Errorf("[Material Note: %v] Response is nil but no error provided on generating study material %s: %v", payload.TryOnID, *note.FileUrl, err)
 	}
 
 	cleanNoteContent := cleanAIResponseText(noteLLMResponseText)
 	// content is json read attributes
-	fmt.Printf("[Material Note: %v] LLM Processed: %s, IT: %d, OT: %d, TT: %d, TOT: %d Thoughts: %s ..\n", payload.NoteID, cleanNoteContent, noteLLMResponse.InputTokenCount, noteLLMResponse.OutputTokenCount, noteLLMResponse.ThoughtsTokenCount, noteLLMResponse.TotalTokenCount, noteLLMResponse.Thoughts)
+	fmt.Printf("[Material Note: %v] LLM Processed: %s, IT: %d, OT: %d, TT: %d, TOT: %d Thoughts: %s ..\n", payload.TryOnID, cleanNoteContent, noteLLMResponse.InputTokenCount, noteLLMResponse.OutputTokenCount, noteLLMResponse.ThoughtsTokenCount, noteLLMResponse.TotalTokenCount, noteLLMResponse.Thoughts)
 	var parsedNoteData services.NoteQuizResponse
 	if err := json.Unmarshal([]byte(cleanNoteContent), &parsedNoteData); err != nil {
-		fmt.Printf("[Material Note: %v] Error on parsing Gemini %s AI json %s", payload.NoteID, modelString, noteLLMResponseText)
-		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Error on parsing Gemini %s AI json %s", payload.NoteID, modelString, noteLLMResponseText))
+		fmt.Printf("[Material Note: %v] Error on parsing Gemini %s AI json %s", payload.TryOnID, modelString, noteLLMResponseText)
+		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Error on parsing Gemini %s AI json %s", payload.TryOnID, modelString, noteLLMResponseText))
 		note.FailedToProcessLLMNoteResponse = cleanNoteContent
 		saveFailQuizNote(db, note, "Failed to generate study material, please try again", true)
 		return err
@@ -803,27 +806,27 @@ func HandleGeneratStudyForNoteTask(ctx context.Context, t *asynq.Task, db *gorm.
 	bonus_len := len(parsedNoteData.HardQuestions)
 	flashcards_len := len(parsedNoteData.FlashCards)
 	if easy_len == 0 || hard_len == 0 || flashcards_len == 0 {
-		fmt.Printf("[Material Note: %v] Easy: %v, Hard:%v, Flashcards: %v, Some material is empty for model %s AI json %s", payload.NoteID, easy_len, hard_len, flashcards_len, modelString, noteLLMResponseText)
-		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Easy: %v, Hard:%v, Flashcards: %v, Some material is empty for model %s AI json %s", payload.NoteID, easy_len, hard_len, flashcards_len, modelString, noteLLMResponseText))
+		fmt.Printf("[Material Note: %v] Easy: %v, Hard:%v, Flashcards: %v, Some material is empty for model %s AI json %s", payload.TryOnID, easy_len, hard_len, flashcards_len, modelString, noteLLMResponseText)
+		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Easy: %v, Hard:%v, Flashcards: %v, Some material is empty for model %s AI json %s", payload.TryOnID, easy_len, hard_len, flashcards_len, modelString, noteLLMResponseText))
 		saveFailQuizNote(db, note, "No questions or flashcards generated, are you sure that your note has enough content?", true)
 		return err
 	}
 	if easy_len < 10 || hard_len < 10 || bonus_len < 10 || flashcards_len < 10 {
-		fmt.Printf("[Material Note: %v] Less material detected! Easy: %v, Hard:%v, Bonus: %v, Flashcards: %v, for %s AI json %s", payload.NoteID, easy_len, hard_len, bonus_len, flashcards_len, modelString, noteLLMResponseText)
-		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Less material detected! Easy: %v, Hard:%v, Flashcards: %v, for %s AI json %s", payload.NoteID, easy_len, hard_len, flashcards_len, modelString, noteLLMResponseText))
+		fmt.Printf("[Material Note: %v] Less material detected! Easy: %v, Hard:%v, Bonus: %v, Flashcards: %v, for %s AI json %s", payload.TryOnID, easy_len, hard_len, bonus_len, flashcards_len, modelString, noteLLMResponseText)
+		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Less material detected! Easy: %v, Hard:%v, Flashcards: %v, for %s AI json %s", payload.TryOnID, easy_len, hard_len, flashcards_len, modelString, noteLLMResponseText))
 		// saveFailQuizNote(db, note)
 
 	}
 	// convert quiz to json string
 	quizJSONBytes, err := json.Marshal(parsedNoteData)
 	if err != nil {
-		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Error on dumping quiz as string from Gemini %s AI json %s", payload.NoteID, modelString, noteLLMResponseText))
+		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Error on dumping quiz as string from Gemini %s AI json %s", payload.TryOnID, modelString, noteLLMResponseText))
 		saveFailQuizNote(db, note, "Could not save quiz, please try to create new note", true)
 		return err
 	}
 	flashcardsJSONBytes, flashCardErr := json.Marshal(parsedNoteData.FlashCards)
 	if flashCardErr != nil {
-		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Error on dumping flashcards as string from Gemini %s AI json %s", payload.NoteID, modelString, noteLLMResponseText))
+		sentry.CaptureException(fmt.Errorf("[Material Note: %v] Error on dumping flashcards as string from Gemini %s AI json %s", payload.TryOnID, modelString, noteLLMResponseText))
 		saveFailQuizNote(db, note, "Could not save flashcards, please try to create new note", true)
 		return flashCardErr
 	}
@@ -903,10 +906,10 @@ func HandleGeneratStudyForNoteTask(ctx context.Context, t *asynq.Task, db *gorm.
 	db.CreateInBatches(questions, 1000)
 	tx := db.Omit("alert_when_processed").Save(&note)
 	if tx.Error != nil {
-		sentry.CaptureException(fmt.Errorf("[Material Note %v] Error on saving note at the end", payload.NoteID))
+		sentry.CaptureException(fmt.Errorf("[Material Note %v] Error on saving note at the end", payload.TryOnID))
 		return tx.Error
 	}
-	fmt.Printf("[Material Note: %v] Transcribing finished succesfully..", payload.NoteID)
+	fmt.Printf("[Material Note: %v] Transcribing finished succesfully..", payload.TryOnID)
 
 	// Save result back to database
 	return nil

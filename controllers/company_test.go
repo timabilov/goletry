@@ -3,9 +3,9 @@ package controllers
 // import (
 // 	"encoding/json"
 // 	"fmt"
-// 	"lessnoteapi/dbhelper"
-// 	"lessnoteapi/models"
-// 	"lessnoteapi/test"
+// 	"letryapi/dbhelper"
+// 	"letryapi/models"
+// 	"letryapi/test"
 // 	"log"
 // 	"net/http"
 // 	"net/http/httptest"

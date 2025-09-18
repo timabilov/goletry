@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"lessnoteapi/models"
 	"math/rand"
 	"os"
 	"strconv"
@@ -9,13 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 )
-
-func GetOrCreatePlayer(db *gorm.DB, deviceid string) *models.Player {
-	//
-	return nil
-}
 
 func BoolPointer(b bool) *bool {
 	return &b

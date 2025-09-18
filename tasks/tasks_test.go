@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"lessnoteapi/dbhelper"
-	"lessnoteapi/models"
-	"lessnoteapi/services"
-	"lessnoteapi/test"
+	"letryapi/dbhelper"
+	"letryapi/models"
+	"letryapi/services"
+	"letryapi/test"
 
 	"github.com/stretchr/testify/assert"
 )

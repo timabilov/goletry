@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"encoding/json"
-	"lessnoteapi/dbhelper"
-	"lessnoteapi/test"
+	"letryapi/dbhelper"
+	"letryapi/test"
 	"log"
 	"net/http"
 	"net/http/httptest"
