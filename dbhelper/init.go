@@ -16,7 +16,7 @@ func SetupDB() *gorm.DB {
 
 	db, err := gorm.Open(postgres.Open(
 		fmt.Sprintf(
-			"postgres://%s:%s@%s:%s/%s",
+			"postgres://%s:%s@%s:%s/%s?sslmode=require",
 			services.GetEnv("DB_USERNAME", ""),
 			services.GetEnv("DB_PASSWORD", ""),
 			services.GetEnv("DB_HOST", ""),
@@ -26,6 +26,11 @@ func SetupDB() *gorm.DB {
 	), &gorm.Config{
 		// Transac
 	})
+
+	if err != nil {
+		fmt.Println("Failed to connect to database", err)
+		panic(err)
+	}
 	sqlDB, err := db.DB()
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(300)
