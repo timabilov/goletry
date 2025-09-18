@@ -90,7 +90,6 @@ type ClothesController struct {
 
 func (controller *ClothesController) ClothingRoutes(g *echo.Group) {
 	g.POST("/tryon", controller.CreateClothing)
-	g.POST("/set-as-uploaded", controller.SetAsUploaded)
 	g.GET("/list", controller.ListClothes)
 }
 
@@ -235,7 +234,7 @@ func (controller *ClothesController) GenerateTryOn(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database connection error"})
 	}
-	if user.AvatarURL == nil || *user.AvatarURL == "" {
+	if user.UserFullBodyImageURL == nil || *user.UserFullBodyImageURL == "" {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "You have to set your avatar first before generating try-on"})
 	}
 	asynqClient, ok := c.Get("__asynqclient").(*asynq.Client)
@@ -275,7 +274,7 @@ func (controller *ClothesController) GenerateTryOn(c echo.Context) error {
 		AccessoryID:            req.AccessoryID,
 		UserAccountID:          user.ID,
 		CompanyID:              company.ID,
-		GeneratedWithAvatarURL: *user.AvatarURL,
+		GeneratedWithAvatarURL: *user.UserFullBodyImageURL,
 		Status:                 "pending",
 	}
 
@@ -291,7 +290,7 @@ func (controller *ClothesController) GenerateTryOn(c echo.Context) error {
 		TryOnPreviewImageURL: try_on_generation.TryOnPreviewImageURL,
 	}
 
-	task, err := tasks.NewTryOnGenerationTask(try_on_generation.ID)
+	task, err := tasks.NewTryOnGenerationTask(user.ID, try_on_generation.ID)
 	if err != nil {
 		sentry.CaptureException(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Sorry, could not start generation, please try again"})
@@ -307,5 +306,52 @@ func (controller *ClothesController) GenerateTryOn(c echo.Context) error {
 }
 
 func (controller *ClothesController) ListClothes(c echo.Context) error {
+	// Get user and db from context
+	user, ok := c.Get("currentUser").(models.UserAccount)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+	}
+	db, ok := c.Get("__db").(*gorm.DB)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database connection error"})
+	}
 
+	// Get all clothes for the user
+	var clothes []models.Clothing
+	if err := db.Where("owner_id = ? AND company_id = ?", user.ID, user.Memberships[0].CompanyID).Find(&clothes).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch clothes"})
+	}
+
+	// Group clothes by type
+	response := ClothesListResponse{
+		Top:         []ClothingResponse{},
+		Bottom:      []ClothingResponse{},
+		Shoes:       []ClothingResponse{},
+		Accessories: []ClothingResponse{},
+	}
+
+	for _, clothing := range clothes {
+		clothingResp := ClothingResponse{
+			ID:           clothing.ID,
+			Name:         clothing.Name,
+			Description:  clothing.Description,
+			ClothingType: clothing.ClothingType,
+			Status:       clothing.Status,
+			CreatedAt:    clothing.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:    clothing.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		}
+
+		switch clothing.ClothingType {
+		case "top":
+			response.Top = append(response.Top, clothingResp)
+		case "bottom":
+			response.Bottom = append(response.Bottom, clothingResp)
+		case "shoes":
+			response.Shoes = append(response.Shoes, clothingResp)
+		case "accessory":
+			response.Accessories = append(response.Accessories, clothingResp)
+		}
+	}
+
+	return c.JSON(http.StatusOK, response)
 }

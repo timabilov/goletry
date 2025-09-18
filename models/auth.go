@@ -68,7 +68,7 @@ type UserMeInfoOut struct {
 	MyCompanies               []CompanyInfoOut `json:"my_companies"`
 	Email                     string           `json:"email"`
 	Status                    string           `json:"-"`
-	AvatarUrl                 string           `json:"avatar_url"`
+	AvatarURL                 string           `json:"avatar_url"`
 	ReceiveSalesNotifications bool             `json:"receive_notifications"`
 }
 
@@ -79,7 +79,7 @@ type UserMeInfoV2Out struct {
 	MyCompanies               []CompanyInfoRoleV2Out `json:"my_companies"`
 	Email                     string                 `json:"email"`
 	Status                    string                 `json:"-"`
-	AvatarUrl                 string                 `json:"avatar_url"`
+	AvatarURL                 string                 `json:"avatar_url"`
 	ReceiveSalesNotifications bool                   `json:"receive_notifications"`
 }
 
@@ -90,7 +90,7 @@ type UserInfoOut struct {
 	CompanyName string `json:"company_name"`
 	Email       string `json:"email"`
 	Status      string `json:"-"`
-	AvatarUrl   string `json:"avatar_url"`
+	AvatarURL   string `json:"avatar_url"`
 }
 
 type MemberInfoOut struct {
@@ -104,32 +104,30 @@ type MemberInfoOut struct {
 	// CompanyName string `json:"company_name"`
 	// Email       string `json:"email"`
 	// Status      string `json:"-"`
-	// AvatarUrl   string `json:"avatar_url"`
+	// AvatarURL   string `json:"avatar_url"`
 }
 
 type CompanyOverviewOut struct {
-	Name                         string          `json:"name"`
-	Address                      *string         `json:"address"`
-	LocationPin                  *string         `json:"location_pin"`
-	BusinessPhone                *string         `json:"business_number"`
-	WhatsAppNumber               *string         `json:"whatsapp_number"`
-	InstagramURL                 *string         `json:"instagram_url"`
-	FacebookURL                  *string         `json:"facebook_url"`
-	TiktokURL                    *string         `json:"tiktok_url"`
-	ImageUrl                     *string         `json:"image_url"`
-	Members                      []MemberInfoOut `json:"members"`
-	Subscription                 string          `json:"subscription"`
-	OwnerID                      uint            `json:"owner_id"`
-	Currency                     string          `json:"currency"`
-	Language                     string          `json:"language"`
-	EnforcedDailyNoteLimit       *int32          `json:"enforced_daily_note_limit"`
-	EnforcedDailyAudioHoursLimit *int32          `json:"enforced_daily_audio_hours_limit"`
-	TodayCreatedNotesCount       *int64          `json:"today_created_notes_count"`
-	TotalCreatedNotesCount       *int64          `json:"total_created_notes_count"`
-	DefaultDailyNoteLimit        int32           `json:"default_daily_note_limit"`
-	DefaulTotalNoteLimit         int32           `json:"default_total_note_limit"`
-	FullAdminAccess              bool            `json:"full_admin_access"`
-	LLMModel                     *int32          `json:"llm_model"`
+	Name                   string          `json:"name"`
+	Address                *string         `json:"address"`
+	LocationPin            *string         `json:"location_pin"`
+	BusinessPhone          *string         `json:"business_number"`
+	WhatsAppNumber         *string         `json:"whatsapp_number"`
+	InstagramURL           *string         `json:"instagram_url"`
+	FacebookURL            *string         `json:"facebook_url"`
+	TiktokURL              *string         `json:"tiktok_url"`
+	ImageUrl               *string         `json:"image_url"`
+	Members                []MemberInfoOut `json:"members"`
+	Subscription           string          `json:"subscription"`
+	OwnerID                uint            `json:"owner_id"`
+	Currency               string          `json:"currency"`
+	Language               string          `json:"language"`
+	TodayCreatedNotesCount *int64          `json:"today_created_notes_count"`
+	TotalCreatedNotesCount *int64          `json:"total_created_notes_count"`
+	DefaultDailyNoteLimit  int32           `json:"default_daily_note_limit"`
+	DefaulTotalNoteLimit   int32           `json:"default_total_note_limit"`
+	FullAdminAccess        bool            `json:"full_admin_access"`
+	LLMModel               *int32          `json:"llm_model"`
 }
 
 type CompanyInfoOut struct {

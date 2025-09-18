@@ -60,7 +60,7 @@ func main() {
 		}},
 	)
 	awsService := &services.AWSService{}
-	transcriber := &services.GoogleLLMNoteProcessor{}
+	llmProcessor := &services.GoogleLLMNoteProcessor{}
 	err := awsService.InitPresignClient(context.Background())
 	if err != nil {
 		log.Fatal("[Queue] Failed to initialize AWS provider: S3")
@@ -73,19 +73,13 @@ func main() {
 	// Set up task handler
 	mux := asynq.NewServeMux()
 	db := dbhelper.SetupDB()
-	mux.HandleFunc("transcribe:note", func(ctx context.Context, t *asynq.Task) error {
-		return tasks.HandleInitialProcessNoteTask(ctx, t, db, transcriber, awsService, app)
+	mux.HandleFunc("generate:tryon", func(ctx context.Context, t *asynq.Task) error {
+		return tasks.HandleTryOnGenerationTask(ctx, t, db, llmProcessor, awsService)
 	})
-	mux.HandleFunc("generatestudy:note", func(ctx context.Context, t *asynq.Task) error {
-		return tasks.HandleGeneratStudyForNoteTask(ctx, t, db, transcriber, awsService)
+	mux.HandleFunc("generate:process_clothing", func(ctx context.Context, t *asynq.Task) error {
+		return tasks.ProcessClothingTask(ctx, t, db, llmProcessor, awsService, app)
 	})
 
-	mux.HandleFunc("youtube:ytdlp", func(ctx context.Context, t *asynq.Task) error {
-		return tasks.HandleDownloadYoutubeTask(ctx, t, db, transcriber, awsService)
-	})
-	mux.HandleFunc("generatestudy:alert", func(ctx context.Context, t *asynq.Task) error {
-		return tasks.ScheduledQuizAlertTask(ctx, t, db, app)
-	})
 	go runScheduler()
 	// Run the worker
 	if err := srv.Run(mux); err != nil {

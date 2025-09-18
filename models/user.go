@@ -26,8 +26,11 @@ type UserAccount struct {
 	ReceiveNotifications bool `json:"receive_notifications"`
 	// mainly for LLM models token explanation etc
 	IsSuperadmin bool `json:"is_superadmin"`
-	// user avatar for try ons!
-	AvatarURL *string `json:"avatar_url"`
+	// user app image/avatar
+	AvatarURL string `json:"avatar_url"`
+
+	// user full body avatar for try ons!
+	UserFullBodyImageURL *string `json:"user_image_url"`
 	// Active                    bool `json:"active"`
 }
 
@@ -93,10 +96,6 @@ type CompanySubscription struct {
 }
 
 // ---
-type LeaderBoardOut struct {
-	Players []Player `json:"players"`
-	Me      *Player  `json:"me"`
-}
 type PlayerIn struct {
 	DeviceId string   `json:"device_id" validate:"required"`
 	Platform Platform `json:"platform" validate:"required,platform"` //ios,android,web

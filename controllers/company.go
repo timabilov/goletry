@@ -41,11 +41,11 @@ func (controller *CompanyController) CompanyRoutes(g *echo.Group) {
 		// if currentCompany.EnforcedDailyNoteLimit == nil {
 
 		today := time.Now().UTC().Format("2006-01-02")
-		if err := db.Model(&models.Note{}).Where("company_id = ? AND DATE(created_at) = ?", companyId, today).Count(&dailyNoteCount).Error; err != nil {
+		if err := db.Model(&models.ClothingTryonGeneration{}).Where("company_id = ? AND DATE(created_at) = ?", companyId, today).Count(&dailyNoteCount).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get note data"})
 		}
-		var totalNoteCount int64
-		if err := db.Model(&models.Note{}).Where("company_id = ?", companyId).Count(&totalNoteCount).Error; err != nil {
+		var totalGenerationCount int64
+		if err := db.Model(&models.ClothingTryonGeneration{}).Where("company_id = ?", companyId).Count(&totalGenerationCount).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get note data"})
 		}
 		// }
@@ -54,22 +54,20 @@ func (controller *CompanyController) CompanyRoutes(g *echo.Group) {
 			enforcedLlmModel = currentCompany.EnforcedLLMModel
 		}
 		return c.JSON(http.StatusOK, &models.CompanyOverviewOut{
-			Name:                         currentCompany.Name,
-			Address:                      currentCompany.Address,
-			ImageUrl:                     currentCompany.ImageUrl,
-			Subscription:                 string(currentCompany.Subscription),
-			EnforcedDailyNoteLimit:       currentCompany.EnforcedDailyNoteLimit,
-			TodayCreatedNotesCount:       &dailyNoteCount,
-			DefaultDailyNoteLimit:        2,
-			DefaulTotalNoteLimit:         2,
-			TotalCreatedNotesCount:       &totalNoteCount,
-			EnforcedDailyAudioHoursLimit: currentCompany.EnforcedDailyAudioHoursLimit,
-			Members:                      members,
-			OwnerID:                      currentCompany.OwnerID,
-			Currency:                     currentCompany.Currency,
-			Language:                     currentCompany.Language,
-			LLMModel:                     enforcedLlmModel,
-			FullAdminAccess:              currentCompany.FullAdminAccess,
+			Name:                   currentCompany.Name,
+			Address:                currentCompany.Address,
+			ImageUrl:               currentCompany.ImageUrl,
+			Subscription:           string(currentCompany.Subscription),
+			TodayCreatedNotesCount: &dailyNoteCount,
+			DefaultDailyNoteLimit:  2,
+			DefaulTotalNoteLimit:   2,
+			TotalCreatedNotesCount: &totalGenerationCount,
+			Members:                members,
+			OwnerID:                currentCompany.OwnerID,
+			Currency:               currentCompany.Currency,
+			Language:               currentCompany.Language,
+			LLMModel:               enforcedLlmModel,
+			FullAdminAccess:        currentCompany.FullAdminAccess,
 		})
 	})
 
@@ -165,7 +163,7 @@ func (controller *CompanyController) CompanyRoutes(g *echo.Group) {
 					CompanyName: currentCompany.Name,
 					Email:       memberUser.Email,
 					Status:      memberUser.Status,
-					AvatarUrl:   memberUser.AvatarUrl,
+					AvatarURL:   memberUser.AvatarURL,
 				},
 				InviteCode: member.InviteCode,
 			})
@@ -203,7 +201,7 @@ func (controller *CompanyController) CompanyRoutes(g *echo.Group) {
 					CompanyName: currentCompany.Name,
 					Email:       memberUser.Email,
 					Status:      memberUser.Status,
-					AvatarUrl:   memberUser.AvatarUrl,
+					AvatarURL:   memberUser.AvatarURL,
 				},
 				InviteCode: member.InviteCode,
 			}
@@ -244,7 +242,7 @@ func (controller *CompanyController) CompanyRoutes(g *echo.Group) {
 				Platform:  models.PlatformAndroid,
 				LastIp:    "",
 				Status:    "INVITATION_PENDING",
-				AvatarUrl: "",
+				AvatarURL: "",
 			}
 			db.Create(&newUser)
 		} else {

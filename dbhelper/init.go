@@ -39,10 +39,9 @@ func SetupDB() *gorm.DB {
 	Migrate(db, &models.UserAccount{})
 	Migrate(db, &models.UserCompanyRole{})
 	Migrate(db, &models.Company{})
+	Migrate(db, &models.ClothingTryonGeneration{})
+	Migrate(db, &models.Clothing{})
 	Migrate(db, &models.UserPushToken{})
-	Migrate(db, &models.Note{})
-	Migrate(db, &models.Question{})
-	Migrate(db, &models.Folder{})
 
 	return db
 }

@@ -21,9 +21,13 @@ import (
 	"gorm.io/gorm"
 )
 
+type SetAvatarUploadFileRequest struct {
+	FileName *string `json:"file_name" validate:"required,max=1000"`
+}
 type AuthController struct {
 	Google      services.GoogleServiceProvider
 	FirebaseApp *firebase.App
+	AWSService  services.AWSServiceProvider
 }
 
 func (m *AuthController) ProfileRoutes(g *echo.Group) {
@@ -129,7 +133,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 					"name":         user.Name,
 					"role":         role,
 					"was_invited":  user.Status == "INVITATION_PENDING",
-					"email":        googleEmail, "new": user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarUrl,
+					"email":        googleEmail, "new": user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarURL,
 					"access_token":  GenerateUserToken(fmt.Sprint(user.ID), c, 72),
 					"refresh_token": refreshToken,
 				})
@@ -137,7 +141,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 				// var existingUserByEmail models.UserAccount
 				r := db.Where("email = ?", googleEmail).Limit(1).Find(&user)
 				if r.RowsAffected > 0 {
-					user.AvatarUrl = pictureUrl
+					user.AvatarURL = pictureUrl
 					user.GoogleID = googleId
 					user.Name = googleName
 					user.LastIp = c.RealIP()
@@ -156,7 +160,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 					}
 					return c.JSON(http.StatusOK, map[string]interface{}{
 						"email": googleEmail,
-						"new":   user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarUrl,
+						"new":   user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarURL,
 						"role":          role, // TODO FIX
 						"was_invited":   user.Status == "INVITATION_PENDING",
 						"name":          googleName,
@@ -172,7 +176,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 						Platform:  models.ScanPlatform(platform),
 						LastIp:    c.RealIP(),
 						Status:    "STARTED_AUTH",
-						AvatarUrl: pictureUrl,
+						AvatarURL: pictureUrl,
 					}
 					db.Create(&user)
 				}
@@ -191,7 +195,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			// this i guess on new auth only
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"email": googleEmail,
-				"new":   r.RowsAffected == 0 || user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarUrl,
+				"new":   r.RowsAffected == 0 || user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarURL,
 				"role":          role,
 				"was_invited":   user.Status == "INVITATION_PENDING",
 				"name":          user.Name,
@@ -244,7 +248,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 				"email":        user.Email,
 				"role":         string(user_membership.Role),
 				"new":          true,
-				"avatar":       user.AvatarUrl,
+				"avatar":       user.AvatarURL,
 				"access_token": GenerateUserToken(fmt.Sprint(user.ID), c, 72),
 			})
 		} else {
@@ -382,7 +386,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 					"name":         user.Name,
 					"role":         role,
 					"was_invited":  user.Status == "INVITATION_PENDING",
-					"email":        appleEmail, "new": user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarUrl,
+					"email":        appleEmail, "new": user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarURL,
 					"access_token":  GenerateUserToken(fmt.Sprint(user.ID), c, 72),
 					"refresh_token": refreshToken,
 				})
@@ -394,9 +398,9 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 				}
 				r := db.Where("email = ?", appleEmail).Limit(1).Find(&user)
 				if r.RowsAffected > 0 {
-					if user.AvatarUrl == "" {
+					if user.AvatarURL == "" {
 
-						user.AvatarUrl = "https://pub-df730af6a36c46a58d6d948f149dae31.r2.dev/user-circle.png"
+						user.AvatarURL = "https://pub-df730af6a36c46a58d6d948f149dae31.r2.dev/user-circle.png"
 					}
 					user.AppleID = appleId
 					if user.Name == "" && appleEmail != "" {
@@ -420,7 +424,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 					}
 					return c.JSON(http.StatusOK, map[string]interface{}{
 						"email": appleEmail,
-						"new":   user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarUrl,
+						"new":   user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarURL,
 						"role":          role, // TODO FIX
 						"was_invited":   user.Status == "INVITATION_PENDING",
 						"name":          appleEmail,
@@ -436,7 +440,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 						Platform:  models.ScanPlatform(platform),
 						LastIp:    c.RealIP(),
 						Status:    "STARTED_AUTH",
-						AvatarUrl: "https://pub-df730af6a36c46a58d6d948f149dae31.r2.dev/user-circle.png",
+						AvatarURL: "https://pub-df730af6a36c46a58d6d948f149dae31.r2.dev/user-circle.png",
 					}
 					db.Create(&user)
 				}
@@ -455,7 +459,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			// this i guess on new auth only
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"email": appleEmail,
-				"new":   r.RowsAffected == 0 || user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarUrl,
+				"new":   r.RowsAffected == 0 || user.Status == "STARTED_AUTH" || user.Status == "INVITATION_PENDING", "avatar": user.AvatarURL,
 				"role":          role,
 				"was_invited":   user.Status == "INVITATION_PENDING",
 				"name":          user.Name,
@@ -508,7 +512,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 				"email":        user.Email,
 				"role":         string(user_membership.Role),
 				"new":          true,
-				"avatar":       user.AvatarUrl,
+				"avatar":       user.AvatarURL,
 				"access_token": GenerateUserToken(fmt.Sprint(user.ID), c, 72),
 			})
 		} else {
@@ -573,7 +577,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			"email":        user.Email,
 			"role":         string(user_membership.Role),
 			"new":          true,
-			"avatar":       user.AvatarUrl,
+			"avatar":       user.AvatarURL,
 			"access_token": GenerateUserToken(fmt.Sprint(user.ID), c, 72),
 		})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), NoMembershipUserMiddleware)
@@ -667,34 +671,6 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 		return err
 	})
 
-	g.GET("/new-invites", func(c echo.Context) error {
-		user := c.Get("currentUser").(models.UserAccount)
-		db := c.Get("__db").(*gorm.DB)
-		var invites []models.UserCompanyRole
-		r := db.Where(" user_account_id = ? and user_company_roles.active = ? and invite_accepted_at is null", user.ID, false).Joins("Company").Find(&invites)
-
-		if r.Error != nil {
-			fmt.Println("Erro while fetching invites", r.Error)
-			return echo.ErrInternalServerError
-		}
-		var companies = []models.CompanyInfoOut{}
-
-		for _, memberships := range invites {
-			companies = append(companies, models.CompanyInfoOut{
-				Name:             memberships.Company.Name,
-				OwnerId:          memberships.Company.OwnerID,
-				Id:               memberships.CompanyID,
-				Active:           memberships.Active,
-				Subscription:     memberships.Company.Subscription,
-				TrialStartedDate: memberships.Company.TrialStartedDate,
-				TrialDays:        memberships.Company.TrialDays,
-			})
-		}
-		return c.JSON(http.StatusOK, echo.Map{
-			"invites": companies,
-		})
-	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), NoMembershipUserMiddleware)
-
 	g.GET("/my/companies", func(c echo.Context) error {
 		user := c.Get("currentUser").(models.UserAccount)
 		db := c.Get("__db").(*gorm.DB)
@@ -720,75 +696,6 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 		}
 		return c.JSON(http.StatusOK, echo.Map{
 			"invites": companies,
-		})
-	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
-
-	g.POST("/accept-invitation/:companyId", func(c echo.Context) error {
-		db := c.Get("__db").(*gorm.DB)
-		user := c.Get("currentUser").(models.UserAccount)
-		var membershipDb models.UserCompanyRole
-		var companyId uint
-		err := echo.PathParamsBinder(c).Uint("companyId", &companyId).BindError() // returns first binding error
-
-		if err != nil {
-			return echo.ErrBadRequest
-		}
-
-		r := db.Where("company_id = ? and user_account_id = ?", companyId, user.ID).Joins("Company").First(&membershipDb)
-
-		if r.Error != nil {
-			fmt.Println("Error while fetching member info")
-			return echo.ErrInternalServerError
-		}
-
-		if r.RowsAffected == 0 {
-			return echo.ErrNotFound
-		}
-		if string(membershipDb.Company.Subscription) == "free" {
-			return echo.ErrForbidden
-		}
-		if membershipDb.InviteAcceptedAt != nil {
-			return c.JSON(int(http.StatusAlreadyReported), echo.Map{
-				"message":      "Already accepted",
-				"user_id":      user.ID,
-				"company_id":   companyId,
-				"company_name": membershipDb.Company.Name,
-				"role":         membershipDb.Role,
-				"name":         user.Name,
-				"company": models.CompanyInfoOut{
-					Name:             membershipDb.Company.Name,
-					OwnerId:          membershipDb.Company.OwnerID,
-					Id:               membershipDb.CompanyID,
-					Active:           membershipDb.Company.Active,
-					Subscription:     membershipDb.Company.Subscription,
-					TrialStartedDate: membershipDb.Company.TrialStartedDate,
-					TrialDays:        membershipDb.Company.TrialDays,
-				},
-			})
-		}
-
-		membershipDb.Active = true
-		membershipDb.InviteAcceptedAt = Int64Pointer(time.Now().UnixMilli())
-
-		user.Status = "FINISHED_AUTH"
-		db.Save(&membershipDb)
-		db.Save(&user)
-		return c.JSON(http.StatusOK, echo.Map{
-			"message":      "Accepted",
-			"user_id":      user.ID,
-			"company_id":   companyId,
-			"company_name": membershipDb.Company.Name,
-			"role":         membershipDb.Role,
-			"name":         user.Name,
-			"company": models.CompanyInfoOut{
-				Name:             membershipDb.Company.Name,
-				OwnerId:          membershipDb.Company.OwnerID,
-				Id:               membershipDb.CompanyID,
-				Active:           membershipDb.Company.Active,
-				Subscription:     membershipDb.Company.Subscription,
-				TrialStartedDate: membershipDb.Company.TrialStartedDate,
-				TrialDays:        membershipDb.Company.TrialDays,
-			},
 		})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
 
@@ -825,7 +732,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			MyCompanies:               companies,
 			Email:                     user.Email,
 			Status:                    user.Status,
-			AvatarUrl:                 user.AvatarUrl,
+			AvatarURL:                 user.AvatarURL,
 			ReceiveSalesNotifications: user.ReceiveNotifications,
 		})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
@@ -954,5 +861,53 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 		return c.JSON(http.StatusOK, echo.Map{
 			"message": "logged out",
 		})
+	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
+
+	g.POST("/set-avatar", func(c echo.Context) error {
+		// Get user from context
+		user, ok := c.Get("currentUser").(models.UserAccount)
+		if !ok {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		}
+		var req SetAvatarUploadFileRequest
+		if err := c.Bind(&req); err != nil {
+			fmt.Println(err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		}
+
+		// Validate request
+		if err := c.Validate(req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		// Parse and validate noteId
+
+		// Get database from context
+		db, ok := c.Get("__db").(*gorm.DB)
+		if !ok {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Our service is not available, please try again a bit later"})
+		}
+
+		// Find note and verify ownership
+		// Return success response
+		var bucketName = services.GetEnv("R2_BUCKET_NAME", "")
+		// todo clean and map the same file name as in FE UI otherwise **FAIL**
+		safeFileName := fmt.Sprintf("fullbodyavatars/%v/%s", user.ID, *req.FileName)
+
+		// uploadUrl, presignErr = controller.AWSService.PresignLink(context.Background(), bucketName, safeFileName)
+		// fileName := strings.ReplaceAll(*req.FileName, " ", "")
+		// fileName = strings.ReplaceAll(*req.FileName, "-", "")
+		// safeFileName := fmt.Sprintf("notes/%s", fileName)
+		uploadUrl, presignErr := m.AWSService.PresignLink(context.Background(), bucketName, safeFileName)
+		if presignErr != nil {
+			log.Printf("Unable to presign generate for avatar upload %s!, %s", user.Name, presignErr)
+			return c.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "Error while uploading your avatar, please try again",
+			})
+		}
+		user.UserFullBodyImageURL = &safeFileName
+		if err := db.Save(&user).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to save your avatar"})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "Avatar is updated successfully", "upload_url": uploadUrl, "file_name": *req.FileName})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
 }

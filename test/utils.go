@@ -81,13 +81,14 @@ func Int64Pointer(i int64) *int64 {
 
 func FakeUser(db *gorm.DB, company *models.Company) *models.UserAccount {
 	user := &models.UserAccount{
-		Name:      "OurName",
-		Email:     "email@example.com",
-		GoogleID:  "12232",
-		Platform:  models.PlatformIOS,
-		LastIp:    "123.122.122.122",
-		Status:    "FINISHED_AUTH",
-		AvatarUrl: "pictureurl",
+		Name:                 "OurName",
+		Email:                "email@example.com",
+		GoogleID:             "12232",
+		Platform:             models.PlatformIOS,
+		LastIp:               "123.122.122.122",
+		Status:               "FINISHED_AUTH",
+		AvatarURL:            "pictureurl",
+		UserFullBodyImageURL: services.StrPointer("/path/to/fullbody/image.jpg"),
 	}
 	db.Create(&user)
 
@@ -136,7 +137,7 @@ func FakeUserV2(db *gorm.DB, company *models.Company, userName string, email str
 		Platform:  models.PlatformIOS,
 		LastIp:    "123.122.122.122",
 		Status:    "FINISHED_AUTH",
-		AvatarUrl: "pictureurl",
+		AvatarURL: "pictureurl",
 	}
 	db.Create(&user)
 	// fmt.Printf("Test.. Fake user id %s \n", strconv.FormatUint(uint64(user.ID), 10))
@@ -343,7 +344,7 @@ func (awsService AWSProviderMock) UploadToPresignedURL(ctx context.Context, buck
 
 type MockGoogleTranscriber struct{}
 
-func (m MockGoogleTranscriber) Transcribe(filePaths []string, modelName services.LLMModelName) (*services.LLMResponse, error) {
+func (m MockGoogleTranscriber) GenerateTryOn(personAvatarPath string, filePaths []string, modelName services.LLMModelName) (*services.LLMResponse, error) {
 	return &services.LLMResponse{Response: `{
 		"md_summary": "Audio summary here.",
 		"name": "Audio name",
@@ -362,6 +363,7 @@ func (m MockGoogleTranscriber) Transcribe(filePaths []string, modelName services
 		"transcription": "Transcript audio here",
 		"language": "ru"
 		}`,
+		Images: [][]byte{[]byte{1, 2}},
 
 		InputTokenCount:    10,
 		TotalTokenCount:    11,
@@ -370,105 +372,7 @@ func (m MockGoogleTranscriber) Transcribe(filePaths []string, modelName services
 	}, nil
 }
 
-func (m MockGoogleTranscriber) ImageOrPdfParse(filePaths []string, modelName services.LLMModelName) (*services.LLMResponse, error) {
-	return &services.LLMResponse{Response: `{
-		"md_summary": "Image summary here.",
-		"name": "Image name here",
-		"quiz_json": [
-			{
-			"answer": "Список команд",
-			"options": [
-				"Набор файлов",
-				"Список команд",
-				"Графическое изображение",
-				"Системная настройка"
-			],
-			"question": "Что понимается под меню в операционной системе Windows согласно тексту?"
-			}
-		],
-		"transcription": "Hello there",
-		"language": "ru"
-		}`,
-		InputTokenCount:    10,
-		TotalTokenCount:    11,
-		ThoughtsTokenCount: 12,
-		OutputTokenCount:   13,
-	}, nil
-}
-
-func (m MockGoogleTranscriber) ExamParse(text *string, filePaths []string, modelName services.LLMModelName) (*services.LLMResponse, error) {
-	return &services.LLMResponse{Response: `{
-		"md_summary": "Exam summary here.",
-		"name": "Exam name here",
-		"transcription": "Hello there",
-		"language": "ru"
-		}`,
-		InputTokenCount:    10,
-		TotalTokenCount:    11,
-		ThoughtsTokenCount: 12,
-		OutputTokenCount:   13,
-	}, nil
-}
-
-func (m MockGoogleTranscriber) TextParse(text string, modelName services.LLMModelName) (*services.LLMResponse, error) {
-	return &services.LLMResponse{Response: `{
-		"md_summary": "Exam summary here.",
-		"name": "Exam name here",
-		"transcription": "Hello there",
-		"language": "ru"
-		}`,
-		InputTokenCount:    10,
-		TotalTokenCount:    11,
-		ThoughtsTokenCount: 12,
-		OutputTokenCount:   13,
-	}, nil
-}
-
-func (m MockGoogleTranscriber) GenerateQuizAndFlashCards(content string, isSourceTest bool, modelName services.LLMModelName, languageCode string) (*services.LLMResponse, error) {
-	return &services.LLMResponse{Response: `{
-  "easy_questions": [
-    {
-      "answer": "–12,9",
-      "options": ["–2,5", "2,5", "12,9", "–12,9"],
-      "question": "–5,2 – 7,7 ifadəsinin qiymətini tapın."
-    },
-    {
-      "answer": "0,1",
-      "options": ["0,00001", "0,0001", "0,001", "0,1"],
-      "question": "Aşağıdakı ədədlərdən hansı böyükdür?"
-    }
-  ],
-  "flashcards": [
-    {
-      "answer": "Rasional və irrasional ədədlər çoxluğunun birləşməsi.",
-      "question": "Həqiqi ədədlər nədir?"
-    },
-    {
-      "answer": "Sıfırdan böyük ədədlər.",
-      "question": "Müsbət ədədlər necə ifadə olunur?"
-    }
-  ],
-  "hard_questions": [
-    {
-      "answer": "228",
-      "options": ["80", "301", "228", "220"],
-      "question": "147 ədədinin müxtəlif bölənlərinin cəmini tapın."
-    },
-    {
-      "answer": "234",
-      "options": ["90", "233", "235", "234"],
-      "question": "153 ədədinin müxtəlif bölənlərinin cəmini tapın."
-    }
-  ]
-}`,
-		InputTokenCount:    10,
-		TotalTokenCount:    11,
-		ThoughtsTokenCount: 12,
-		OutputTokenCount:   13,
-	}, nil
-}
-
-func (m MockGoogleTranscriber) DocumentsParse(filePaths []string, userTranscript string, modelName services.LLMModelName) (*services.LLMResponse, error) {
+func (m MockGoogleTranscriber) ProcessClothing(filePath string, modelName services.LLMModelName) (*services.LLMResponse, error) {
 	return &services.LLMResponse{Response: `{
 		"md_summary": "Document summary here.",
 		"name": "Document name here",

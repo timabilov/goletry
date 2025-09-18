@@ -29,7 +29,7 @@ func (controller *ProfileController) ProfileRoutes(g *echo.Group) {
 			CompanyName: companyDb.Name,
 			Email:       user.Email,
 			Status:      user.Status,
-			AvatarUrl:   user.AvatarUrl,
+			AvatarURL:   user.AvatarURL,
 		})
 	})
 
@@ -57,7 +57,7 @@ func (controller *ProfileController) ProfileRoutes(g *echo.Group) {
 					CompanyName: companyDb.Name,
 					Email:       memberUser.Email,
 					Status:      memberUser.Status,
-					AvatarUrl:   memberUser.AvatarUrl,
+					AvatarURL:   memberUser.AvatarURL,
 				},
 				InviteCode: member.InviteCode,
 			})
