@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	firebase "firebase.google.com/go/v4"
@@ -729,11 +728,11 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			})
 		}
 		fullbodyAvatarUrl := user.UserFullBodyImageURL
-		if user.UserFullBodyImageURL != nil && *user.UserFullBodyImageURL != ""  {
+		if user.UserFullBodyImageURL != nil && *user.UserFullBodyImageURL != "" {
 
 			bucketName := services.GetEnv("R2_BUCKET_NAME", "") // Assuming you have a way to get this
 			avatarR2URL, err := m.AWSService.GetPresignedR2FileReadURL(context.
-				Background(), bucketName, *user.UserFullBodyImageURL
+				Background(), bucketName, *user.UserFullBodyImageURL,
 			)
 
 			if err != nil {
@@ -751,7 +750,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			Status:                    user.Status,
 			AvatarURL:                 user.AvatarURL,
 			FullBodyAvatarUrl:         fullbodyAvatarUrl,
-			FullBodyAvatarSet: 	       user.FullBodyAvatarSet,
+			FullBodyAvatarSet:         user.FullBodyAvatarSet,
 			ReceiveSalesNotifications: user.ReceiveNotifications,
 		})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
