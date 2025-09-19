@@ -20,7 +20,7 @@ func TestAuthGoogle(t *testing.T) {
 	db := dbhelper.SetupTestDB()
 	cleaner := dbhelper.SetupCleaner(db)
 	defer cleaner()
-	e := SetupServer(db, test.GoogleServiceMock{}, test.AWSProviderMock{}, nil, nil, nil)
+	e := SetupServer(db, test.GoogleServiceMock{}, test.AWSProviderMock{}, nil, nil, nil, &test.URLCacheMock{})
 
 	// dUUID := uuid.NewString()
 
@@ -114,7 +114,7 @@ func TestRefreshToken(t *testing.T) {
 	db := dbhelper.SetupTestDB()
 	cleaner := dbhelper.SetupCleaner(db)
 	defer cleaner()
-	e := SetupServer(db, test.GoogleServiceMock{}, test.AWSProviderMock{}, nil, nil, nil)
+	e := SetupServer(db, test.GoogleServiceMock{}, test.AWSProviderMock{}, nil, nil, nil, &test.URLCacheMock{})
 
 	// dUUID := uuid.NewString()
 	userDb := test.FakeUserV2(db, nil, "name", "refresh@fastposapp.com")
@@ -138,7 +138,7 @@ func TestAcceptInvitation(t *testing.T) {
 	db := dbhelper.SetupTestDB()
 	cleaner := dbhelper.SetupCleaner(db)
 	defer cleaner()
-	e := SetupServer(db, test.GoogleServiceMock{}, &test.AWSProviderMock{}, nil, nil, nil)
+	e := SetupServer(db, test.GoogleServiceMock{}, &test.AWSProviderMock{}, nil, nil, nil, &test.URLCacheMock{})
 	// user3 := test.FakeUser(db, nil)
 	user := test.FakeUser(db, nil)
 

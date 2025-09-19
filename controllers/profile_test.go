@@ -17,7 +17,7 @@ func TestGetProfileOk(t *testing.T) {
 	db := dbhelper.SetupTestDB()
 	cleaner := dbhelper.SetupCleaner(db)
 	defer cleaner()
-	e := SetupServer(db, test.GoogleServiceMock{}, &test.AWSProviderMock{}, nil, nil, nil)
+	e := SetupServer(db, test.GoogleServiceMock{}, &test.AWSProviderMock{}, nil, nil, nil, &test.URLCacheMock{})
 	user := test.FakeUser(db, nil)
 
 	req := test.NewJSONAuthRequest("GET", "/shop/profile/me", strconv.FormatUint(uint64(user.ID), 10), "")
@@ -42,7 +42,7 @@ func TestGetMembersOk(t *testing.T) {
 	db := dbhelper.SetupTestDB()
 	cleaner := dbhelper.SetupCleaner(db)
 	defer cleaner()
-	e := SetupServer(db, test.GoogleServiceMock{}, &test.AWSProviderMock{}, nil, nil, nil)
+	e := SetupServer(db, test.GoogleServiceMock{}, &test.AWSProviderMock{}, nil, nil, nil, &test.URLCacheMock{})
 	// user3 := test.FakeUser(db, nil)
 	user := test.FakeUser(db, nil)
 

@@ -13,15 +13,20 @@ import (
 )
 
 func SetupDB() *gorm.DB {
+	sslMode := "?sslmode=require"
+	if _, isProduction := os.LookupEnv("PORT"); !isProduction {
+		sslMode = ""
+	}
 
 	db, err := gorm.Open(postgres.Open(
 		fmt.Sprintf(
-			"postgres://%s:%s@%s:%s/%s?sslmode=require",
+			"postgres://%s:%s@%s:%s/%s%s",
 			services.GetEnv("DB_USERNAME", ""),
 			services.GetEnv("DB_PASSWORD", ""),
 			services.GetEnv("DB_HOST", ""),
 			services.GetEnv("DB_PORT", ""),
 			services.GetEnv("DB_NAME", ""),
+			sslMode,
 		),
 	), &gorm.Config{
 		// Transac

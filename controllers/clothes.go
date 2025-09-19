@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"letryapi/models"
@@ -60,6 +61,7 @@ type ClothingResponse struct {
 	Description  *string `json:"description"`
 	ClothingType string  `json:"clothing_type"`
 	Status       string  `json:"status"`
+	Uri          *string `json:"uri,omitempty"`
 	CreatedAt    string  `json:"created_at"`
 	UpdatedAt    string  `json:"updated_at"`
 }
@@ -86,6 +88,7 @@ type ClothesController struct {
 	Google      services.GoogleServiceProvider
 	AWSService  services.AWSServiceProvider
 	FirebaseApp *firebase.App
+	URLCache    services.URLCacheServiceProvider
 }
 
 func (controller *ClothesController) ClothingRoutes(g *echo.Group) {
@@ -306,6 +309,75 @@ func (controller *ClothesController) GenerateTryOn(c echo.Context) error {
 	return c.JSON(http.StatusCreated, response)
 }
 
+// populatePresignedClothingImages takes raw clothing models and enriches them with presigned URLs concurrently.
+// This version includes a failsafe for when the cache system itself fails.
+func (controller *ClothesController) populatePresignedClothingImages(ctx context.Context, clothes []models.Clothing) []ClothingResponse {
+	if len(clothes) == 0 {
+		return []ClothingResponse{}
+	}
+
+	var wg sync.WaitGroup
+	processedResponses := make([]ClothingResponse, len(clothes))
+	bucketName := services.GetEnv("R2_BUCKET_NAME", "") // Assuming you have a way to get this
+
+	for i, clothingItem := range clothes {
+		wg.Add(1)
+		go func(index int, item models.Clothing) {
+			defer wg.Done()
+
+			var imageUrl string
+			if item.ImageURL != nil && *item.ImageURL != "" {
+				objectKey := *item.ImageURL
+
+				// Attempt to get the URL from the cache service first.
+				url, err := controller.URLCache.GetReadURL(ctx, objectKey)
+
+				if err == nil {
+					// SUCCESS: The cache system worked (either a hit or a miss+load).
+					imageUrl = url
+				} else {
+					// FAILURE: The cache system itself failed! This is an exceptional event.
+					// We will now trigger our manual failsafe.
+					log.Printf("CACHE WARNING: Cache system failed for key '%s': %v. Triggering manual R2 fallback.", objectKey, err)
+
+					// Log the cache failure to Sentry for monitoring.
+					sentry.WithScope(func(scope *sentry.Scope) {
+						scope.SetTag("failure_type", "cache_system")
+						scope.SetExtra("objectKey", objectKey)
+						sentry.CaptureException(err)
+					})
+
+					// Failsafe: Bypass the cache and call the AWS service directly.
+					fallbackUrl, fallbackErr := controller.AWSService.GetPresignedR2FileReadURL(ctx, bucketName, objectKey)
+					if fallbackErr != nil {
+						// The fallback also failed. This is a critical error.
+						log.Printf("CRITICAL: Manual R2 fallback also failed for key '%s': %v", objectKey, fallbackErr)
+						sentry.CaptureException(fallbackErr)
+						// imageUrl remains empty, but we don't fail the entire request.
+					} else {
+						// Failsafe succeeded.
+						imageUrl = fallbackUrl
+					}
+				}
+			}
+			// Map the results into the response struct.
+			processedResponses[index] = ClothingResponse{
+				ID:           item.ID,
+				Name:         item.Name,
+				Description:  item.Description,
+				ClothingType: item.ClothingType,
+				Status:       item.Status,
+				CreatedAt:    item.CreatedAt.Format("2006-01-02T15:04:05Z"),
+				UpdatedAt:    item.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+				Uri:          &imageUrl,
+			}
+		}(i, clothingItem)
+	}
+
+	wg.Wait()
+	return processedResponses
+}
+
 func (controller *ClothesController) ListClothes(c echo.Context) error {
 	// Get user and db from context
 	user, ok := c.Get("currentUser").(models.UserAccount)
@@ -322,8 +394,10 @@ func (controller *ClothesController) ListClothes(c echo.Context) error {
 	if err := db.Where("owner_id = ? AND company_id = ?", user.ID, user.Memberships[0].CompanyID).Find(&clothes).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch clothes"})
 	}
+	// --- 3. Delegate all complex processing to our new helper function ---
+	processedResponses := controller.populatePresignedClothingImages(c.Request().Context(), clothes)
 
-	// Group clothes by type
+	// --- 4. Group the fully-processed results (simple, fast, and readable) ---
 	response := ClothesListResponse{
 		Tops:        []ClothingResponse{},
 		Bottoms:     []ClothingResponse{},
@@ -331,26 +405,16 @@ func (controller *ClothesController) ListClothes(c echo.Context) error {
 		Accessories: []ClothingResponse{},
 	}
 
-	for _, clothing := range clothes {
-		clothingResp := ClothingResponse{
-			ID:           clothing.ID,
-			Name:         clothing.Name,
-			Description:  clothing.Description,
-			ClothingType: clothing.ClothingType,
-			Status:       clothing.Status,
-			CreatedAt:    clothing.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:    clothing.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		}
-
-		switch clothing.ClothingType {
+	for _, resp := range processedResponses {
+		switch resp.ClothingType {
 		case "top":
-			response.Tops = append(response.Tops, clothingResp)
+			response.Tops = append(response.Tops, resp)
 		case "bottom":
-			response.Bottoms = append(response.Bottoms, clothingResp)
+			response.Bottoms = append(response.Bottoms, resp)
 		case "shoes":
-			response.Shoes = append(response.Shoes, clothingResp)
+			response.Shoes = append(response.Shoes, resp)
 		case "accessory":
-			response.Accessories = append(response.Accessories, clothingResp)
+			response.Accessories = append(response.Accessories, resp)
 		}
 	}
 

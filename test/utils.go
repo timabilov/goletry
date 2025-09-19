@@ -397,3 +397,15 @@ func (m MockGoogleTranscriber) ProcessClothing(filePath string, modelName servic
 		OutputTokenCount:   13,
 	}, nil
 }
+
+type URLCacheMock struct {
+	MockUrl string
+}
+
+func (s *URLCacheMock) GetReadURL(ctx context.Context, objectKey string) (string, error) {
+	if objectKey == "" {
+		return "", nil
+	}
+
+	return "value", nil
+}

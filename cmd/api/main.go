@@ -60,9 +60,16 @@ func main() {
 	}
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: os.Getenv("ASYNC_BROKER_ADDRESS")})
 	asynqInspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: os.Getenv("ASYNC_BROKER_ADDRESS")})
+	bucketName := services.GetEnv("R2_BUCKET_NAME", "") // Assuming you have a way to get this
+	awsService := &services.AWSService{}
+	urlCache, err := services.NewURLCacheService(awsService, bucketName)
+	if err != nil {
+		log.Fatal("Failed to initialize URL cache service")
+	}
+
 	e := controllers.SetupServer(
-		db, services.GoogleService{}, &services.AWSService{}, app,
-		asynqClient, asynqInspector,
+		db, services.GoogleService{}, awsService, app,
+		asynqClient, asynqInspector, urlCache,
 	)
 	e.Debug = true
 	if os.Getenv("TELEGRAM_BOT") == "true" {

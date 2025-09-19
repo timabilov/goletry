@@ -51,6 +51,7 @@ func SetupServer(
 	firebaseApp *firebase.App,
 	asynqClient *asynq.Client,
 	asynqInspector *asynq.Inspector,
+	urlCache services.URLCacheServiceProvider,
 ) *echo.Echo {
 
 	fmt.Println(firebaseApp, "Firebase app")
@@ -114,7 +115,7 @@ func SetupServer(
 	profileGroup := generalGroup.Group("/profile")
 
 	profileController.ProfileRoutes(profileGroup)
-	clothingController := ClothesController{Google: googleService, AWSService: awsService, FirebaseApp: firebaseApp}
+	clothingController := ClothesController{Google: googleService, AWSService: awsService, FirebaseApp: firebaseApp, URLCache: urlCache}
 	clothingGroup := companyGroup.Group("/clothes")
 	clothingController.ClothingRoutes(clothingGroup)
 

@@ -16,7 +16,7 @@ func TestWebhookBody(t *testing.T) {
 	db := dbhelper.SetupTestDB()
 	cleaner := dbhelper.SetupCleaner(db)
 	defer cleaner()
-	e := SetupServer(db, test.GoogleServiceMock{}, &test.AWSProviderMock{}, nil, nil, nil)
+	e := SetupServer(db, test.GoogleServiceMock{}, &test.AWSProviderMock{}, nil, nil, nil, &test.URLCacheMock{})
 	// user3 := test.FakeUser(db, nil)
 	user := test.FakeUser(db, nil)
 
