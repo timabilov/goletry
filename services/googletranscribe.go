@@ -179,7 +179,9 @@ func GetFirstCandidateTextWithThoughts(result *genai.GenerateContentResponse) (*
 	for _, c := range result.Candidates {
 		// fmt.Println("Candidate:", i, c.Content.Parts[0].Text, c.Content.Parts[0].Thought)
 		fmt.Println("Finish reason: ", c.FinishReason, " Finish message: ", c.FinishMessage)
+
 		if len(c.SafetyRatings) > 0 {
+			fmt.Println("[Safety] Safety ratings present:", len(c.SafetyRatings))
 			for _, rating := range c.SafetyRatings {
 				fmt.Println("[Safety] rating:", rating.Category, "Score:", rating.Probability, "Severity score:", rating.SeverityScore, " Blocked:", rating.Blocked)
 				if rating.Blocked {
