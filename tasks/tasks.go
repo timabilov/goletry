@@ -178,7 +178,7 @@ func ProcessAvatarTask(
 	fileBytes, fileName, err := fetchR2File(awsService, user.UserFullBodyImageURL, "User ID "+fmt.Sprint(payload.UserID))
 	if err != nil {
 		saveUserAvatarProcessingFail(db, user, "Failed to read clothing image, please try to create new clothing", false)
-		sentry.CaptureException(fmt.Errorf("[Avatar: %v] File path exists, but error on getting file %s: %v", payload.UserID, *user.ImageURL, err))
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] File path exists, but error on getting file %s: %v", payload.UserID, *user.UserFullBodyImageURL, err))
 		return err
 	}
 	fmt.Printf("[Avatar: %v] Downloaded file size: %d bytes\n", payload.UserID, len(fileBytes))
@@ -194,7 +194,7 @@ func ProcessAvatarTask(
 
 	if err != nil {
 		saveUserAvatarProcessingFail(db, user, "Failed to read your clothing files, please try to create new clothing", true)
-		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error extracting documents from zip %s: %v", payload.UserID, *user.ImageURL, err))
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error extracting documents from zip %s: %v", payload.UserID, *user.UserFullBodyImageURL, err))
 		return err
 	}
 

@@ -947,6 +947,6 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 		if err := db.Save(&user).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to save your avatar"})
 		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "Avatar is updated successfully", "upload_url": uploadUrl, "file_name": *req.FileName})
+		return c.JSON(http.StatusOK, map[string]string{"message": "Avatar is updated successfully", "upload_url": uploadUrl, "processing_status": user.FullBodyAvatarStatus, "file_name": *req.FileName})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
 }
