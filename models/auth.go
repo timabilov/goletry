@@ -81,6 +81,8 @@ type UserMeInfoV2Out struct {
 	Status                    string                 `json:"-"`
 	AvatarURL                 string                 `json:"avatar_url"`
 	ReceiveSalesNotifications bool                   `json:"receive_notifications"`
+	FullBodyAvatarUrl         *string                `json:"user_fullbody_avatar_url"`
+	FullBodyAvatarSet         bool                   `json:"full_body_avatar_set"`
 }
 
 type UserInfoOut struct {

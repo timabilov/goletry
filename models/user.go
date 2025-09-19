@@ -29,6 +29,7 @@ type UserAccount struct {
 	// user app image/avatar
 	AvatarURL string `json:"avatar_url"`
 
+	FullBodyAvatarSet bool `json:"full_body_avatar_set"`
 	// user full body avatar for try ons!
 	UserFullBodyImageURL *string `json:"user_image_url"`
 	// Active                    bool `json:"active"`

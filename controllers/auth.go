@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	firebase "firebase.google.com/go/v4"
@@ -727,12 +728,30 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 				},
 			})
 		}
+		fullbodyAvatarUrl := user.UserFullBodyImageURL
+		if user.UserFullBodyImageURL != nil && *user.UserFullBodyImageURL != ""  {
+
+			bucketName := services.GetEnv("R2_BUCKET_NAME", "") // Assuming you have a way to get this
+			avatarR2URL, err := m.AWSService.GetPresignedR2FileReadURL(context.
+				Background(), bucketName, *user.UserFullBodyImageURL
+			)
+
+			if err != nil {
+				// The fallback also failed. This is a critical error.
+				log.Printf("CRITICAL:  R2 avatar could not fetch for key '%s': %v", *user.UserFullBodyImageURL, err)
+				sentry.CaptureException(err)
+				// imageUrl remains empty, but we don't fail the entire request.
+			}
+			fullbodyAvatarUrl = &avatarR2URL
+		}
 		return c.JSON(http.StatusOK, models.UserMeInfoV2Out{
 			Name:                      user.Name,
 			MyCompanies:               companies,
 			Email:                     user.Email,
 			Status:                    user.Status,
 			AvatarURL:                 user.AvatarURL,
+			FullBodyAvatarUrl:         fullbodyAvatarUrl,
+			FullBodyAvatarSet: 	       user.FullBodyAvatarSet,
 			ReceiveSalesNotifications: user.ReceiveNotifications,
 		})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
@@ -905,6 +924,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			})
 		}
 		user.UserFullBodyImageURL = &safeFileName
+		user.FullBodyAvatarSet = true
 		if err := db.Save(&user).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to save your avatar"})
 		}
