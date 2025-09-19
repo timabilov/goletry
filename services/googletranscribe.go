@@ -255,7 +255,7 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 		// TopK:            floatPointer(0.5),
 		SystemInstruction: &genai.Content{
 			Parts: []*genai.Part{
-				{Text: `Generate full body 9:16 shot of user avatar image in e-commerce fashion style with white background with neutral standard white shirt and trousers. Preserve all user personality, details, sizes and especially all face details. If any, remove all unnecessary items in hand  and put person into neutral ready-to-take a picture calm, neutral slightly smiling position`},
+				{Text: `Generate full body 9:16 shot of user avatar image in e-commerce fashion style with white background with neutral standard white shirt and trousers. Preserve all user personality, details, sizes and especially all face details. If any, remove all unnecessary items in hand  and put person into neutral ready-to-take a picture calm, neutral slightly smiling position. If no person image detected, return exactly this phrase: "NO_PERSON".`},
 			},
 		},
 	})

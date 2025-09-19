@@ -230,6 +230,11 @@ func ProcessAvatarTask(
 		return err
 	}
 	clothingLLMResponseText = clothingLLMResponse.Response
+	if strings.Contains(clothingLLMResponseText, "NO_PERSON") {
+		saveUserAvatarProcessingFail(db, user, "No person detected in the image, please try to upload new avatar", false)
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] No person detected in the image on generating tryon %s: %v", payload.UserID, "", err))
+		return fmt.Errorf("[Avatar: %v] No person detected in the image on generating tryon %s: %v", payload.UserID, "", err)
+	}
 	if clothingLLMResponseText != "" {
 		fmt.Printf("[Avatar: %v] Response is nil but no error provided on generating study material %s: %s", payload.UserID, "", clothingLLMResponseText)
 	}
