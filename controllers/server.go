@@ -99,7 +99,7 @@ func SetupServer(
 
 	authGroup := e.Group("auth")
 
-	controller := AuthController{Google: googleService, FirebaseApp: firebaseApp}
+	controller := AuthController{Google: googleService, FirebaseApp: firebaseApp, AWSService: awsService}
 	controller.ProfileRoutes(authGroup)
 
 	companyController := CompanyController{AWSService: awsService, FirebaseApp: firebaseApp}
