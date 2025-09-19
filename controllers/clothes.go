@@ -89,6 +89,7 @@ type ClothesController struct {
 }
 
 func (controller *ClothesController) ClothingRoutes(g *echo.Group) {
+	g.POST("/create", controller.CreateClothing)
 	g.POST("/tryon", controller.CreateClothing)
 	g.GET("/list", controller.ListClothes)
 }
