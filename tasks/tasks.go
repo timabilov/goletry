@@ -213,7 +213,7 @@ func ProcessAvatarTask(
 	fmt.Printf("[Avatar: %v] Model: %s\n", payload.UserID, modelString)
 	// }
 
-	fmt.Printf("[Avatar: %v] Avatar url %s\n", payload.UserID, user.AvatarURL)
+	fmt.Printf("[Avatar: %v] Avatar url %s\n", payload.UserID, *user.UserFullBodyImageURL)
 	fmt.Printf("[Avatar: %v] Downloaded avatar: %v:", payload.UserID, imgPath)
 	// if db.Save(&user).Error != nil {
 	// 	fmt.Printf("[Avatar: %v] Error on saving clothing type detect %v", payload.UserID, err)
@@ -261,7 +261,7 @@ func ProcessAvatarTask(
 	}
 	// parse file from Output of ytdlp file path in fmt.Sprintf("clothing-%v.%%(ext)s", clothing.ID)
 	respBody, statusCode, err := awsService.UploadToPresignedURL(context.Background(), bucketName, uploadUrl, generatedImageBytes)
-	fmt.Printf("[Try on: %v] R2 Upload response body: %s, status code: %v\n", payload.UserID, respBody, statusCode)
+	fmt.Printf("[Avatar: %v] R2 Upload response body: %s, status code: %v\n", payload.UserID, respBody, statusCode)
 	if err != nil || statusCode != 204 {
 		saveUserAvatarProcessingFail(db, user, "Failed to upload generated avatar, please try again", true)
 		fmt.Printf("[Avatar: %v] Error on uploading file %s: %v\n", payload.UserID, safeFileName, err)
