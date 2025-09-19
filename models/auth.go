@@ -73,16 +73,18 @@ type UserMeInfoOut struct {
 }
 
 type UserMeInfoV2Out struct {
-	Id                        string                 `json:"id"`
-	CompanyId                 string                 `json:"company_id"`
-	Name                      string                 `json:"name"`
-	MyCompanies               []CompanyInfoRoleV2Out `json:"my_companies"`
-	Email                     string                 `json:"email"`
-	Status                    string                 `json:"-"`
-	AvatarURL                 string                 `json:"avatar_url"`
-	ReceiveSalesNotifications bool                   `json:"receive_notifications"`
-	FullBodyAvatarUrl         *string                `json:"user_fullbody_avatar_url"`
-	FullBodyAvatarSet         bool                   `json:"full_body_avatar_set"`
+	Id                                   string                 `json:"id"`
+	CompanyId                            string                 `json:"company_id"`
+	Name                                 string                 `json:"name"`
+	MyCompanies                          []CompanyInfoRoleV2Out `json:"my_companies"`
+	Email                                string                 `json:"email"`
+	Status                               string                 `json:"-"`
+	AvatarURL                            string                 `json:"avatar_url"`
+	ReceiveSalesNotifications            bool                   `json:"receive_notifications"`
+	FullBodyAvatarUrl                    *string                `json:"user_fullbody_avatar_url"`
+	FullBodyAvatarProcessingErrorMessage *string                `json:"full_body_avatar_processing_error_message"`
+	FullBodyAvatarSet                    bool                   `json:"full_body_avatar_set"`
+	FullBodyAvatarStatus                 string                 `json:"full_body_avatar_status"`
 }
 
 type UserInfoOut struct {

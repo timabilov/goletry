@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +28,10 @@ type ClothingGenerationPayload struct {
 	ClothingId uint `json:"clothing_id"`
 }
 
+type UserAvatarGeneratePayload struct {
+	UserID uint `json:"user_id"`
+}
+
 // Client initializes an asynq client for enqueuing tasks
 func NewClient() (*asynq.Client, error) {
 	return asynq.NewClient(asynq.RedisClientOpt{Addr: "your-redis-connection-string"}), nil
@@ -41,6 +44,16 @@ func NewTryOnGenerationTask(userID uint, tryOnID uint) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask("generate:tryon", payload), nil
+
+}
+
+// EnqueueTranscribeNote enqueues a clothing for processing
+func NewFullBodyAvatarGenerateTask(userID uint) (*asynq.Task, error) {
+	payload, err := json.Marshal(UserAvatarGeneratePayload{UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask("generate:avatar", payload), nil
 
 }
 
@@ -125,34 +138,6 @@ func rapidAPIRequest(youtubeID string) (map[string]interface{}, error) {
 	return result, nil
 }
 
-func readYoutubeResultRapidLinkMD5Hash(link, rapidAPIUsername string) (*http.Response, error) {
-	// Compute MD5 hash of RapidAPI username
-	hash := fmt.Sprintf("%x", md5.Sum([]byte(rapidAPIUsername)))
-
-	// Create a new HTTP request
-	req, err := http.NewRequest("GET", link, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %v", err)
-	}
-
-	// Add custom X-RUN header with MD5 hash
-	req.Header.Set("X-RUN", hash)
-
-	// Create HTTP client and execute request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error making request: %v", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		// print the body
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("error: youtube result link received status code %d %s", resp.StatusCode, string(body))
-	}
-	return resp, nil
-}
-
 func cleanAIResponseText(text string) string {
 	// Remove any leading or trailing whitespace
 	cleanContent := strings.ReplaceAll(text, "```json", "")
@@ -165,17 +150,147 @@ func cleanAIResponseText(text string) string {
 	// Remove any leading or trailing whitespace again after replacements
 	return cleanContent
 }
-func cleanAIResponseSeparateFieldsText(text string) string {
-	// Remove any leading or trailing whitespace
-	// cleanContent := strings.ReplaceAll(text, "```json", "")
-	// cleanContent = strings.TrimSuffix(text, "```")
-	cleanText := strings.ReplaceAll(text, "\\n", "\n")
 
-	// Replace multiple spaces with a single space
+func ProcessAvatarTask(
+	ctx context.Context, t *asynq.Task, db *gorm.DB, transcriber services.LLMProcessor,
+	awsService services.AWSServiceProvider, fbApp *firebase.App) error {
+	google_key := os.Getenv("GOOGLE_API_KEY")
+	if google_key == "" {
+		sentry.CaptureException(fmt.Errorf("[QUEUE] %s Google API key is not set", string(t.Payload())))
+		return fmt.Errorf("[QUEUE] %s Google API key is not set", string(t.Payload()))
+	}
+	var payload UserAvatarGeneratePayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return err
+	}
+	fmt.Printf("[Avatar: %v] Start Processing\n", payload.UserID)
+	var user models.UserAccount
+	res := db.First(&user, payload.UserID)
+	if res.Error != nil {
+		sentry.CaptureException(fmt.Errorf("[QUEUE] Avatar: error on retrieving user for processing %v", payload.UserID))
+		return res.Error
+	}
+	if user.UserFullBodyImageURL == nil {
+		saveUserAvatarProcessingFail(db, user, "Failed to identify your avatar image, please try to upload new avatar", false)
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error on getting user image for processing", payload.UserID))
+		return fmt.Errorf("[Avatar: %v] Error on getting user image", payload.UserID)
+	}
+	fileBytes, fileName, err := fetchR2File(awsService, user.UserFullBodyImageURL, "User ID "+fmt.Sprint(payload.UserID))
+	if err != nil {
+		saveUserAvatarProcessingFail(db, user, "Failed to read clothing image, please try to create new clothing", false)
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] File path exists, but error on getting file %s: %v", payload.UserID, *user.ImageURL, err))
+		return err
+	}
+	fmt.Printf("[Avatar: %v] Downloaded file size: %d bytes\n", payload.UserID, len(fileBytes))
+	imgPath, err := services.CreateTempFile(fileBytes, fileName)
+	// clean defer file after processing
+	defer func(path string) {
+		if err := os.Remove(path); err != nil {
+			fmt.Printf("[Avatar: %v] Error removing temporary file %s: %v\n", payload.UserID, path, err)
+		} else {
+			fmt.Printf("[Avatar: %v] Successfully removed temporary file %s\n", payload.UserID, path)
+		}
+	}(imgPath)
 
-	// Remove any newlines or carriage returns
-	// Remove any leading or trailing whitespace again after replacements
-	return cleanText
+	if err != nil {
+		saveUserAvatarProcessingFail(db, user, "Failed to read your clothing files, please try to create new clothing", true)
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error extracting documents from zip %s: %v", payload.UserID, *user.ImageURL, err))
+		return err
+	}
+
+	var clothingLLMResponseText string
+	var clothingLLMResponse *services.LLMResponse
+
+	fmt.Printf("[Avatar: %v] Transform to e-commerce style avatar..\n", payload.UserID)
+	model := services.Flash25Image
+	modelString := model.String()
+	// if user.EnforcedLLMModel != nil {
+	// 	model = services.LLMModelName(*user.Company.EnforcedLLMModel)
+	// 	modelString = model.String()
+	// 	fmt.Printf("[Avatar: %v] [ENFORCE MODEL] Using enforced model: %s\n", payload.UserID, model.String())
+	// }
+
+	fmt.Printf("[Avatar: %v] Model: %s\n", payload.UserID, modelString)
+	// }
+
+	fmt.Printf("[Avatar: %v] Avatar url %s\n", payload.UserID, user.AvatarURL)
+	fmt.Printf("[Avatar: %v] Downloaded avatar: %v:", payload.UserID, imgPath)
+	// if db.Save(&user).Error != nil {
+	// 	fmt.Printf("[Avatar: %v] Error on saving clothing type detect %v", payload.UserID, err)
+	// 	saveUserAvatarProcessingFail(db, user, "Failed to determine clothing type, please try to create new clothing", true)
+	// 	sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error on saving clothing mid type detect %v", payload.UserID, err))
+	// }
+
+	clothingLLMResponse, err = transcriber.ProcessAvatarTask(imgPath, services.Flash25Image)
+	fmt.Printf("[Avatar: %v] Images length: %d", payload.UserID, len(clothingLLMResponse.Images))
+	fmt.Println("Images length:", len(clothingLLMResponse.Images))
+	if err != nil {
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error on generating study material %s: %v", payload.UserID, "", err))
+		saveUserAvatarProcessingFail(db, user, "Failed to generate avatar, please try again", true)
+		return err
+	}
+	clothingLLMResponseText = clothingLLMResponse.Response
+	if clothingLLMResponseText != "" {
+		fmt.Printf("[Avatar: %v] Response is nil but no error provided on generating study material %s: %s", payload.UserID, "", clothingLLMResponseText)
+	}
+	if len(clothingLLMResponse.Images) == 0 {
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Response image is nil or empty on generating try on %s: %v", payload.UserID, "", err))
+		saveUserAvatarProcessingFail(db, user, "Failed to generate generating preview, please try again", true)
+		return fmt.Errorf("[Avatar: %v] Response image is nil or empty on generating try on %s: %v", payload.UserID, "", err)
+	}
+	if len(clothingLLMResponse.Images) > 1 {
+		fmt.Printf("[Avatar: %v] Warning: More than 1 image returned, using the first one\n", payload.UserID)
+	}
+	generatedImageBytes := clothingLLMResponse.Images[0]
+	// err = os.WriteFile("nanobanana.png", generatedImageBytes, 0644)
+	// if err != nil {
+	// 	log.Fatalf("failed to write file: %s", err)
+	// }
+
+	fmt.Println("Successfully wrote data to file1.txt")
+	var bucketName = services.GetEnv("R2_BUCKET_NAME", "")
+	// todo clean and map the same file name as in FE UI otherwise **FAIL**
+	safeFileName := fmt.Sprintf("/user/%v/generation/%s", user.ID, "generation.png")
+
+	uploadUrl, presignErr := awsService.PresignLink(context.Background(), bucketName, safeFileName)
+	if presignErr != nil {
+		saveUserAvatarProcessingFail(db, user, "Failed to upload generated avatar, please try again", true)
+		fmt.Printf("[Avatar: %v]  Unable to create presign link for tryon %s!\n", user.ID, presignErr)
+		sentry.CaptureException(fmt.Errorf("[Clothing: %v] Unable to create presign for tryon %s", payload.UserID, presignErr))
+		return presignErr
+	}
+	// parse file from Output of ytdlp file path in fmt.Sprintf("clothing-%v.%%(ext)s", clothing.ID)
+	respBody, statusCode, err := awsService.UploadToPresignedURL(context.Background(), bucketName, uploadUrl, generatedImageBytes)
+	fmt.Printf("[Try on: %v] R2 Upload response body: %s, status code: %v\n", payload.UserID, respBody, statusCode)
+	if err != nil || statusCode != 204 {
+		saveUserAvatarProcessingFail(db, user, "Failed to upload generated avatar, please try again", true)
+		fmt.Printf("[Avatar: %v] Error on uploading file %s: %v\n", payload.UserID, safeFileName, err)
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error on uploading file %s: %v", payload.UserID, safeFileName, err))
+		return err
+	}
+	fmt.Printf("[Avatar: %v] Success.. Removing local one\n", payload.UserID)
+	user.UserFullBodyImageURL = &safeFileName
+	user.FullBodyAvatarStatus = "completed"
+
+	user.LLMTotalTokenCount = &clothingLLMResponse.TotalTokenCount
+	user.LLMInputTokenCount = &clothingLLMResponse.InputTokenCount
+	user.LLMThoughtsTokenCount = &clothingLLMResponse.ThoughtsTokenCount
+	user.LLMOutputTokenCount = &clothingLLMResponse.OutputTokenCount
+	user.LLMThoughts = &clothingLLMResponse.Thoughts
+	user.LLMModel = &modelString
+
+	// save question from llm
+
+	tx := db.Save(&user)
+	if tx.Error != nil {
+		saveUserAvatarProcessingFail(db, user, "Failed to save generated avatar, please try again", true)
+		sentry.CaptureException(fmt.Errorf("[Avatar %v] Error on saving avatar at the end", payload.UserID))
+		return tx.Error
+	}
+	fmt.Printf("[Avatar: %v] Generation finished succesfully..", payload.UserID)
+
+	// Save result back to database
+	return nil
 }
 
 // InitialProcessNote handles the task of processing a clothing with the LLM
@@ -573,6 +688,20 @@ func saveClothingProcessingFail(db *gorm.DB, clothing models.Clothing, msg strin
 	return nil
 }
 
+func saveUserAvatarProcessingFail(db *gorm.DB, user models.UserAccount, msg string, shouldRetry bool) error {
+	user.AvatarProcessRetryTimes = user.AvatarProcessRetryTimes + 1
+	if !shouldRetry || user.AvatarProcessRetryTimes >= 3 {
+		user.FullBodyAvatarProcessingErrorMessage = &msg
+
+		user.Status = "failed"
+	}
+	tx := db.Save(&user)
+	if tx.Error != nil {
+		sentry.CaptureException(fmt.Errorf("[Fail Avatar %v] Error on saving user avatar for failed status", user.ID))
+		return tx.Error
+	}
+	return nil
+}
 func ScheduledQuizAlertTask(ctx context.Context, t *asynq.Task, db *gorm.DB, fbApp *firebase.App) error {
 
 	fmt.Printf("[Scheduled] Processing something\n")

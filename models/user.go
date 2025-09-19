@@ -29,9 +29,19 @@ type UserAccount struct {
 	// user app image/avatar
 	AvatarURL string `json:"avatar_url"`
 
+	AvatarProcessRetryTimes              int     `json:"-"`
+	FullBodyAvatarStatus                 string  `json:"full_body_avatar_status"` // idle, processing, completed, failed
+	FullBodyAvatarProcessingErrorMessage *string `json:"full_body_avatar_processing_error_message"`
+	// deprecated
 	FullBodyAvatarSet bool `json:"full_body_avatar_set"`
 	// user full body avatar for try ons!
-	UserFullBodyImageURL *string `json:"user_image_url"`
+	UserFullBodyImageURL  *string `json:"user_image_url"`
+	LLMTotalTokenCount    *int32  `json:"llm_total_token_count"`
+	LLMInputTokenCount    *int32  `json:"llm_input_token_count"`
+	LLMThoughtsTokenCount *int32  `json:"llm_thoughts_token_count"`
+	LLMOutputTokenCount   *int32  `json:"llm_output_token_count"`
+	LLMThoughts           *string `json:"llm_thoughts"`
+	LLMModel              *string `json:"llm_model"`
 	// Active                    bool `json:"active"`
 }
 

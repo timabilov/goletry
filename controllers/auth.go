@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"letryapi/models"
 	"letryapi/services"
+	"letryapi/tasks"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 	apple "github.com/Timothylock/go-signin-with-apple/apple"
 	"github.com/getsentry/sentry-go"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/hibiken/asynq"
 	echojwt "github.com/labstack/echo-jwt"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -905,6 +907,11 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Our service is not available, please try again a bit later"})
 		}
 
+		asynqClient, ok := c.Get("__asynqclient").(*asynq.Client)
+		if !ok {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Service is not available, please try again a bit later"})
+		}
+
 		// Find note and verify ownership
 		// Return success response
 		var bucketName = services.GetEnv("R2_BUCKET_NAME", "")
@@ -923,8 +930,20 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			})
 		}
 		user.UserFullBodyImageURL = &safeFileName
-		user.FullBodyAvatarSet = true
+		user.FullBodyAvatarStatus = "processing"
 		fmt.Println("Presetting user avatar url to ", safeFileName)
+
+		task, err := tasks.NewFullBodyAvatarGenerateTask(user.ID)
+		if err != nil {
+			sentry.CaptureException(err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Sorry, could not process avatar, please try again"})
+		}
+		info, err := asynqClient.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("generate"))
+		if err != nil {
+			sentry.CaptureException(err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Sorry, could not process avatar, please try again"})
+		}
+		fmt.Println("[Queue] Process Avatar %s task submitted, User ID: ", safeFileName, user.ID, " Task ID: ", info.ID)
 		if err := db.Save(&user).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to save your avatar"})
 		}
