@@ -247,6 +247,14 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 		CandidateCount: 1,
 		// ThinkingConfig: &genai.ThinkingConfig{
 		// 	IncludeThoughts: true,
+		SafetySettings: []*genai.SafetySetting{
+			{
+				Method:   genai.HarmBlockMethodSeverity,
+				Category: genai.HarmCategorySexuallyExplicit,
+
+				Threshold: genai.HarmBlockThresholdBlockOnlyHigh,
+			},
+		},
 		// 	ThinkingBudget:  Int32Pointer(3000),
 		// },
 		// because its youtube it can have more..
