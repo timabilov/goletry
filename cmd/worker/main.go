@@ -80,7 +80,7 @@ func main() {
 		return tasks.ProcessClothingTask(ctx, t, db, llmProcessor, awsService, app)
 	})
 	mux.HandleFunc("generate:avatar", func(ctx context.Context, t *asynq.Task) error {
-		return tasks.ProcessClothingTask(ctx, t, db, llmProcessor, awsService, app)
+		return tasks.ProcessAvatarTask(ctx, t, db, llmProcessor, awsService, app)
 	})
 
 	go runScheduler()
