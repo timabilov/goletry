@@ -294,6 +294,7 @@ func ProcessClothingTask(
 	// convert quiz to json string
 	// quizJSONBytes, err := json.Marshal(parsedNoteData.QuizJSON)
 	// quizJSONString :=
+	clothing.Status = "in_closet"
 	clothing.ProcessingStatus = "completed"
 	// clothing.Transcript = &parsedNoteData.Transcription
 	// clothing.ConspectAIMD5 = &parsedNoteData.MD_Summary

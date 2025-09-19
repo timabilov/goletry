@@ -32,10 +32,10 @@ type ClothingUploadFileRequest struct {
 // Request structs for validation
 type CreateClothingIn struct {
 	Name         string  `json:"name" validate:"omitempty,max=100"`
-	FileName     *string `json:"file_name" validate:"max=200"`
+	FileName     *string `json:"file_name" validate:"required,max=200"`
 	Description  *string `json:"description" validate:"omitempty,max=500"`
 	ClothingType string  `json:"clothing_type" validate:"required,oneof=top bottom shoes accessory"` // e.g., top, bottom, shoes, accessory
-	AddToCloset  bool    `json:"add_to_closet" validate:"required"`
+	AddToCloset  *bool   `json:"add_to_closet" validate:"required"`
 }
 
 type GenerateTryOnIn struct {
@@ -178,7 +178,7 @@ func (controller *ClothesController) CreateClothing(c echo.Context) error {
 		sentry.CaptureException(err)
 		return err
 	}
-	if req.AddToCloset {
+	if req.AddToCloset != nil && *req.AddToCloset {
 		clothing.ProcessingStatus = "pending"
 		if err := db.Save(&clothing).Error; err != nil {
 			sentry.CaptureException(err)
