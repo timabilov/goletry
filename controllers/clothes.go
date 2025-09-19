@@ -76,8 +76,8 @@ type TryOnGenerationCreatedResponse struct {
 }
 
 type ClothesListResponse struct {
-	Top         []ClothingResponse `json:"top"`
-	Bottom      []ClothingResponse `json:"bottom"`
+	Tops        []ClothingResponse `json:"tops"`
+	Bottoms     []ClothingResponse `json:"bottoms"`
 	Shoes       []ClothingResponse `json:"shoes"`
 	Accessories []ClothingResponse `json:"accessories"`
 }
@@ -324,8 +324,8 @@ func (controller *ClothesController) ListClothes(c echo.Context) error {
 
 	// Group clothes by type
 	response := ClothesListResponse{
-		Top:         []ClothingResponse{},
-		Bottom:      []ClothingResponse{},
+		Tops:        []ClothingResponse{},
+		Bottoms:     []ClothingResponse{},
 		Shoes:       []ClothingResponse{},
 		Accessories: []ClothingResponse{},
 	}
@@ -343,9 +343,9 @@ func (controller *ClothesController) ListClothes(c echo.Context) error {
 
 		switch clothing.ClothingType {
 		case "top":
-			response.Top = append(response.Top, clothingResp)
+			response.Tops = append(response.Tops, clothingResp)
 		case "bottom":
-			response.Bottom = append(response.Bottom, clothingResp)
+			response.Bottoms = append(response.Bottoms, clothingResp)
 		case "shoes":
 			response.Shoes = append(response.Shoes, clothingResp)
 		case "accessory":
