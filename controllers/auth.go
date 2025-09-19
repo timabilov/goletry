@@ -746,14 +746,16 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			fullbodyAvatarUrl = &avatarR2URL
 		}
 		return c.JSON(http.StatusOK, models.UserMeInfoV2Out{
-			Name:                      user.Name,
-			MyCompanies:               companies,
-			Email:                     user.Email,
-			Status:                    user.Status,
-			AvatarURL:                 user.AvatarURL,
-			FullBodyAvatarUrl:         fullbodyAvatarUrl,
-			FullBodyAvatarSet:         user.FullBodyAvatarSet,
-			ReceiveSalesNotifications: user.ReceiveNotifications,
+			Name:                                 user.Name,
+			MyCompanies:                          companies,
+			Email:                                user.Email,
+			Status:                               user.Status,
+			AvatarURL:                            user.AvatarURL,
+			FullBodyAvatarUrl:                    fullbodyAvatarUrl,
+			FullBodyAvatarSet:                    user.FullBodyAvatarSet,
+			FullBodyAvatarStatus:                 user.FullBodyAvatarStatus,
+			FullBodyAvatarProcessingErrorMessage: user.FullBodyAvatarProcessingErrorMessage,
+			ReceiveSalesNotifications:            user.ReceiveNotifications,
 		})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
 
