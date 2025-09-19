@@ -943,7 +943,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			sentry.CaptureException(err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Sorry, could not process avatar, please try again"})
 		}
-		fmt.Println("[Queue] Process Avatar %s task submitted, User ID: ", safeFileName, user.ID, " Task ID: ", info.ID)
+		fmt.Printf("[Queue] Process Avatar %s task submitted, User ID: %v Task ID %v ", safeFileName, user.ID, info.ID)
 		if err := db.Save(&user).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to save your avatar"})
 		}
