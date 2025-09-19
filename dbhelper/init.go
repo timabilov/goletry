@@ -30,6 +30,7 @@ func SetupDB() *gorm.DB {
 		),
 	), &gorm.Config{
 		// Transac
+		PrepareStmt: false,
 	})
 
 	if err != nil {
