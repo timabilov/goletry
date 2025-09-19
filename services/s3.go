@@ -76,12 +76,12 @@ func (awsService *AWSService) UploadToPresignedURL(ctx context.Context, bucketNa
 	mimeType := http.DetectContentType(fileContent)
 	fmt.Println("Detected MIME type:", mimeType)
 	// Validate if the file is an audio type (optional)
-	allowedAudioTypes := map[string]bool{
+	allowedMimeTypes := map[string]bool{
 		"image/png":  true,
 		"image/jpeg": true,
 		"image/heic": true,
 	}
-	if !allowedAudioTypes[mimeType] {
+	if !allowedMimeTypes[mimeType] {
 		return "", 0, fmt.Errorf("unsupported file type: %s", mimeType)
 	}
 
