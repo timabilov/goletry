@@ -924,6 +924,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 		}
 		user.UserFullBodyImageURL = &safeFileName
 		user.FullBodyAvatarSet = true
+		fmt.Println("Presetting user avatar url to ", safeFileName)
 		if err := db.Save(&user).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to save your avatar"})
 		}
