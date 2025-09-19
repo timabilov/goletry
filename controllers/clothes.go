@@ -56,14 +56,15 @@ type GenericResponse struct {
 
 // Response structs
 type ClothingResponse struct {
-	ID           uint    `json:"id"`
-	Name         string  `json:"name"`
-	Description  *string `json:"description"`
-	ClothingType string  `json:"clothing_type"`
-	Status       string  `json:"status"`
-	Uri          *string `json:"uri,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	ID               uint    `json:"id"`
+	Name             string  `json:"name"`
+	Description      *string `json:"description"`
+	ClothingType     string  `json:"clothing_type"`
+	Status           string  `json:"status"`
+	ProcessingStatus string  `json:"processing_status"`
+	Uri              *string `json:"uri,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
 }
 
 type ClothingCreatedResponse struct {
@@ -153,10 +154,11 @@ func (controller *ClothesController) CreateClothing(c echo.Context) error {
 		}
 	}
 	clothing := models.Clothing{
-		Name:         req.Name,
-		Description:  req.Description,
-		ClothingType: req.ClothingType,
-		OwnerID:      user.ID,
+		Name:             req.Name,
+		Description:      req.Description,
+		ClothingType:     req.ClothingType,
+		OwnerID:          user.ID,
+		ProcessingStatus: "idle",
 		// Status:       req.Status,
 		CompanyID: user.Memberships[0].CompanyID,
 		// Company:    user.Memberships[0].Company,
@@ -203,13 +205,14 @@ func (controller *ClothesController) CreateClothing(c echo.Context) error {
 	// Prepare response
 	response := ClothingCreatedResponse{
 		ClothingResponse: ClothingResponse{
-			ID:           clothing.ID,
-			Name:         clothing.Name,
-			Description:  clothing.Description,
-			ClothingType: clothing.ClothingType,
-			Status:       clothing.Status,
-			CreatedAt:    clothing.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:    clothing.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			ID:               clothing.ID,
+			Name:             clothing.Name,
+			Description:      clothing.Description,
+			ClothingType:     clothing.ClothingType,
+			Status:           clothing.Status,
+			ProcessingStatus: clothing.ProcessingStatus,
+			CreatedAt:        clothing.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:        clothing.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 		},
 		FileUploadUrl: uploadUrl,
 	}
