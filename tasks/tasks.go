@@ -502,6 +502,7 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 		return nil
 	}
 	fmt.Println("Fetching clothing files...", tryOnGeneration.TopClothing, *tryOnGeneration.TopClothingID, "hello there")
+	time.Sleep(2 * time.Second) // wait for r2 to be ready
 	if tryOnGeneration.TopClothing != nil {
 		fmt.Printf("[Try on Gen: %v] Adding top clothing ID: %v\n", payload.TryOnID, tryOnGeneration.TopClothing.ID)
 		topFileBytes, topFileName, err := fetchR2File(awsService, tryOnGeneration.TopClothing.ImageURL, fmt.Sprintf("TryOnGen-%v-TopClothing-%v", payload.TryOnID, tryOnGeneration.TopClothing.ID))
