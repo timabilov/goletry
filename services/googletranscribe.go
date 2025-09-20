@@ -259,7 +259,7 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 	// Second, add the text prompt part at the end.
 	// The prompt correctly refers to the "second image" as the background.
 	parts = append(parts, &genai.Part{
-		Text: "Generate full body e-commerce fashion image in neutral white shirt and trousers and use solid, flat, unlit, white second image as a new background for person image which will be chromakey. Keep all facial features, body proportions, and personality traits exact. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return \"NO_PERSON\", otherwise output only person on flat, consistent, all white second image background. Do not apply slight grayish gradients, keep all edges white. Aspect ratio 9:16 portrait size",
+		Text: "Create a hyper-realistic cinematic editorial-style full-body portrait of the  person from first image by keeping his identity, personality, facial identity(100% same) and use solid, flat, unlit, white second image as a new background for person image which will be chromakey. keep user facial identity exactly same, unchanged. The lighting on user should be as if it is a dramatic warm spotlight in a studio lighting, high-resolution. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return \"NO_PERSON\", otherwise output only person on flat, consistent, all white second image background. Do not apply slight grayish gradients, keep all edges white. Aspect ratio 9:16 portrait size",
 	})
 
 	// The rest of your function remains the same...
