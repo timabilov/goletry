@@ -234,8 +234,9 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 				MIMEType: genFile.MIMEType,
 			},
 		})
+		//Claude: Generate full body 9:16 e-commerce style photo: user in neutral white shirt and trousers on pure white (#FFFFFF) background. Keep all facial features, body proportions, and personality traits exact. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return "NO_PERSON". Output only person on white background.
 		parts = append(parts, &genai.Part{
-			Text: "Generate full body 9:16 shot of user avatar image in e-commerce fashion style with completely WHITE background and with standard white shirt and trousers as it is on beginning level of games. Preserve all users personality related details body sizes and especially all face details. If any, remove all unnecessary items in hand  and put person into neutral ready-to-take a picture calm, neutral slightly smiling position.  If no person image detected, return exactly this phrase: \"NO_PERSON\". Remove all other background watermarks, objects, persons, animals, items. Return only person avatar image with fully white background.",
+			Text: "Generate full body 9:16 e-commerce style photo: user in neutral white shirt and trousers on pure white (#FFFFFF) background. Keep all facial features, body proportions, and personality traits exact. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return \"NO_PERSON\". Output only person on white background.",
 		})
 	}
 
