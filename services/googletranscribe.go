@@ -337,12 +337,28 @@ func (GoogleLLMNoteProcessor) GenerateTryOn(personAvatarPath string, filePaths [
 
 	var genFiles []*genai.File
 
-	genFile, err := tryUploadGoogleStorage(ctx, client, personAvatarPath, nil)
+	const whiteCanvasPath = "./white_540x960.png"
+	_, err = os.Open(whiteCanvasPath)
+	if err != nil {
+		return nil, err
+	}
+	// osf.Re
+
+	// 1. Upload the user's avatar
+	personAvatarFile, err := tryUploadGoogleStorage(ctx, client, personAvatarPath, nil)
 	if err != nil {
 		fmt.Println("Error uploading person avatar file:", personAvatarPath, err)
-		return nil, fmt.Errorf("error uploading file %s: %v", personAvatarPath, err)
+		return nil, fmt.Errorf("error uploading person avatar file %s: %v", personAvatarPath, err)
 	}
-	genFiles = append(genFiles, genFile)
+	genFiles = append(genFiles, personAvatarFile)
+	fmt.Println("Successfully uploaded person avatar:", personAvatarPath)
+
+	whiteCanvasFile, err := tryUploadGoogleStorage(ctx, client, whiteCanvasPath, nil)
+	if err != nil {
+		fmt.Println("Error uploading white canvas file:", whiteCanvasPath, err)
+		return nil, fmt.Errorf("error uploading white canvas file %s: %v", whiteCanvasPath, err)
+	}
+	genFiles = append(genFiles, whiteCanvasFile)
 	// Upload each file and get the URI
 	for i, filePath := range filePaths {
 		if filePath == "" {
@@ -391,7 +407,7 @@ func (GoogleLLMNoteProcessor) GenerateTryOn(personAvatarPath string, filePaths [
 		// TopK:            floatPointer(0.5),
 		SystemInstruction: &genai.Content{
 			Parts: []*genai.Part{
-				{Text: `Generate a fashion-style full-body commercial head to toe photographer edited portrait of the  person from first image by keeping his identity, personality, facial identity(100% same) and use solid, flat, unlit, white first image background as a source for ratio and background. Take the all images after first one and let the same exact person from the first image wear it. For missing clothing items, keep original ones that user wears. keep user facial identity exactly same, unchanged. By keeping same personality, identity and exact same body/hand/head/leg sizes - generate the straight facing the camera and relaxed, coolest, confident pose with neutral white shirt, white trousers and white neutral shoes. The lighting on user should be natural, soft and professional, high-resolution and opening the color of person. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return "NO_PERSON", otherwise output only full-body person, with on flat, consistent, all white second image background. Do not apply slight grayish gradients, keep all edges white. Aspect ratio 9:16 portrait size`},
+				{Text: `Generate a fashion-style full-body commercial head to toe photographer edited portrait of the  person from first image by keeping his identity, personality, facial identity(100% same) and use solid, flat, unlit, white second image background as a source for ratio and background. Take the all images after second one and let the same exact person from the first image wear it. For missing clothing items, keep original ones that user wears. keep user facial identity exactly same, unchanged. By keeping same personality, identity and exact same body/hand/head/leg sizes - generate the straight facing the camera and relaxed, coolest, confident pose with neutral white shirt, white trousers and white neutral shoes. The lighting on user should be natural, soft and professional, high-resolution and opening the color of person. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return "NO_PERSON", otherwise output only full-body person, with on flat, consistent, all white second image background. Do not apply slight grayish gradients, keep all edges white. Aspect ratio 9:16 portrait size`},
 			},
 		},
 	})
