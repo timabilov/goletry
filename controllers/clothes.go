@@ -44,8 +44,6 @@ type GenerateTryOnIn struct {
 	BottomClothingID *uint `json:"bottom_clothing_id"`
 	ShoesClothingID  *uint `json:"shoes_clothing_id"`
 	AccessoryID      *uint `json:"accessory_id"`
-
-	Status string `json:"status" validate:"required,oneof=temporary in_closet"`
 }
 
 // Removed ClothingUploadFileRequest and CreateFolderRequest - not needed
