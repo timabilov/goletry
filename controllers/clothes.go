@@ -73,9 +73,10 @@ type ClothingCreatedResponse struct {
 }
 
 type TryOnGenerationCreatedResponse struct {
-	TryOnID              uint    `json:"try_on_id"`
-	Status               string  `json:"status"`
-	TryOnPreviewImageURL *string `json:"try_on_preview_image_url,omitempty"`
+	TryOnID                uint    `json:"try_on_id"`
+	Status                 string  `json:"status"`
+	TryOnPreviewImageURL   *string `json:"try_on_preview_image_url,omitempty"`
+	ProcessingErrorMessage *string `json:"processing_error_message,omitempty"`
 }
 
 type ClothesListResponse struct {
@@ -95,6 +96,7 @@ type ClothesController struct {
 func (controller *ClothesController) ClothingRoutes(g *echo.Group) {
 	g.POST("/create", controller.CreateClothing)
 	g.POST("/tryon", controller.CreateClothing)
+	g.GET("/tryon/:id", controller.RetrieveTryOnGeneration)
 	g.GET("/list", controller.ListClothes)
 }
 
@@ -309,6 +311,57 @@ func (controller *ClothesController) GenerateTryOn(c echo.Context) error {
 	}
 	fmt.Println("[Queue] Try on generation task submitted, Try ID: ", try_on_generation.ID, " Task ID: ", info.ID)
 
+	return c.JSON(http.StatusCreated, response)
+}
+
+func (controller *ClothesController) RetrieveTryOnGeneration(c echo.Context) error {
+	// get id from url.
+
+	// Get user and db from context
+	user, ok := c.Get("currentUser").(models.UserAccount)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+	}
+	db, ok := c.Get("__db").(*gorm.DB)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database connection error"})
+	}
+	if user.UserFullBodyImageURL == nil || *user.UserFullBodyImageURL == "" {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "You have to set your avatar first before generating try-on"})
+	}
+	var tryOnGeneration models.ClothingTryonGeneration
+	//get from db by id
+	if err := db.Preload("TopClothing").Preload("BottomClothing").Preload("ShoesClothing").Preload("Accessory").First(&tryOnGeneration, "id = ? AND user_account_id = ?", c.Param("id"), user.ID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Try-on generation not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Couldn't find generated image"})
+	}
+
+	// Prepare response
+	response := TryOnGenerationCreatedResponse{
+		TryOnID:                tryOnGeneration.ID,
+		Status:                 tryOnGeneration.Status,
+		TryOnPreviewImageURL:   nil,
+		ProcessingErrorMessage: tryOnGeneration.GenerationErrorMessage,
+	}
+	var tryOnGeneratedUrl string
+	if tryOnGeneration.TryOnPreviewImageURL != nil && tryOnGeneration.Status == "completed" {
+
+		bucketName := services.GetEnv("R2_BUCKET_NAME", "") // Assuming you have a way to get this
+		generationUrl, err := controller.AWSService.GetPresignedR2FileReadURL(context.
+			Background(), bucketName, *tryOnGeneration.TryOnPreviewImageURL,
+		)
+
+		if err != nil {
+			// The fallback also failed. This is a critical error.
+			log.Printf("CRITICAL:  R2 avatar could not fetch for key '%s': %v", *user.UserFullBodyImageURL, err)
+			sentry.CaptureException(err)
+			// imageUrl remains empty, but we don't fail the entire request.
+		}
+		tryOnGeneratedUrl = generationUrl
+	}
+	response.TryOnPreviewImageURL = &tryOnGeneratedUrl
 	return c.JSON(http.StatusCreated, response)
 }
 
