@@ -640,7 +640,7 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 		sentry.CaptureException(fmt.Errorf("[Try on Gen: %v] Error on uploading file %s: %v", payload.TryOnID, safeFileName, err))
 		return err
 	}
-	fmt.Printf("[Try on Gen: %v] Success.. Removing local one\n", payload.TryOnID)
+	fmt.Printf("[Try on Gen: %v] Success url: %s\n", payload.TryOnID, uploadUrl)
 	tryOnGeneration.TryOnPreviewImageURL = &safeFileName
 	tryOnGeneration.Status = "completed"
 
@@ -658,7 +658,7 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 		sentry.CaptureException(fmt.Errorf("[Try on Gen %v] Error on saving clothing at the end", payload.TryOnID))
 		return tx.Error
 	}
-	fmt.Printf("[Try on Gen: %v] Transcribing finished succesfully..", payload.TryOnID)
+	fmt.Printf("[Try on Gen: %v] Generation finished succesfully..", payload.TryOnID)
 
 	// Save result back to database
 	return nil
