@@ -177,6 +177,7 @@ func ProcessAvatarTask(
 	}
 	fileBytes, fileName, err := fetchR2File(awsService, user.UserFullBodyImageURL, "User ID "+fmt.Sprint(payload.UserID))
 	if err != nil {
+		fmt.Printf("[Avatar: %v] Error on getting file from R2 %s: %v\n", payload.UserID, *user.UserFullBodyImageURL, err)
 		saveUserAvatarProcessingFail(db, user, "Failed to read clothing image, please try to create new clothing", false)
 		sentry.CaptureException(fmt.Errorf("[Avatar: %v] File path exists, but error on getting file %s: %v", payload.UserID, *user.UserFullBodyImageURL, err))
 		return err
