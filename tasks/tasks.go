@@ -68,8 +68,8 @@ func NewClothingProcessingTask(clothingId uint) (*asynq.Task, error) {
 
 func fetchR2File(awsService services.AWSServiceProvider, r2FilePath *string, entityLog string) ([]byte, string, error) {
 	bucketName := os.Getenv("R2_BUCKET_NAME")
-	fmt.Printf("[Clothing: %v] Bucket name: %s\n", entityLog, bucketName)
-	fmt.Printf("[Clothing: %v] Request presigned download url.. ", entityLog)
+	fmt.Printf("[R2: %v] Bucket name: %s\n", entityLog, bucketName)
+	fmt.Printf("[R2: %v] Request presigned download url.. ", entityLog)
 	if r2FilePath == nil {
 		return nil, "", fmt.Errorf("[Clothing: %v] File URL is nil", entityLog)
 	}
@@ -175,6 +175,7 @@ func ProcessAvatarTask(
 		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error on getting user image for processing", payload.UserID))
 		return fmt.Errorf("[Avatar: %v] Error on getting user image", payload.UserID)
 	}
+	time.Sleep(2 * time.Second) // wait for r2 to be ready
 	fileBytes, fileName, err := fetchR2File(awsService, user.UserFullBodyImageURL, "User ID "+fmt.Sprint(payload.UserID))
 	if err != nil {
 		fmt.Printf("[Avatar: %v] Error on getting file from R2 %s: %v\n", payload.UserID, *user.UserFullBodyImageURL, err)
