@@ -217,8 +217,12 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 	}
 
 	// This file must exist in the same folder as your executable.
-	const whiteCanvasPath = "white_540x960.png"
-
+	const whiteCanvasPath = "./white_540x960.png"
+	_, err = os.Open(whiteCanvasPath)
+	if err != nil {
+		return nil, err
+	}
+	// osf.Re
 	var genFiles []*genai.File
 
 	// 1. Upload the user's avatar
