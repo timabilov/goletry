@@ -267,9 +267,9 @@ func ProcessAvatarTask(
 	// parse file from Output of ytdlp file path in fmt.Sprintf("clothing-%v.%%(ext)s", clothing.ID)
 	respBody, statusCode, err := awsService.UploadToPresignedURL(context.Background(), bucketName, uploadUrl, generatedImageBytes)
 	fmt.Printf("[Avatar: %v] R2 Upload response body: %s, status code: %v\n", payload.UserID, respBody, statusCode)
-	if err != nil || statusCode != 204 {
+	if err != nil || statusCode != 204 || statusCode != 200 {
 		saveUserAvatarProcessingFail(db, user, "Failed to upload generated avatar, please try again", true)
-		fmt.Printf("[Avatar: %v] Error on uploading file %s: %v\n", payload.UserID, safeFileName, err)
+		fmt.Printf("[Avatar: %v] Error on uploading file not success code or err %s: %v\n", payload.UserID, safeFileName, err)
 		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error on uploading file %s: %v", payload.UserID, safeFileName, err))
 		return err
 	}
