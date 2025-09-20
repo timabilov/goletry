@@ -484,7 +484,7 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 		return nil
 	}
 
-	if tryOnGeneration.BottomClothing != nil && tryOnGeneration.TopClothing.ImageURL == nil {
+	if tryOnGeneration.BottomClothing != nil && tryOnGeneration.BottomClothing.ImageURL == nil {
 		saveTryOnGenerationFail(db, tryOnGeneration, "Bottom clothing image is missing, please select a valid top clothing", false)
 		sentry.CaptureException(fmt.Errorf("[Try on Gen: %v] Bottom clothing image is missing, please select a valid top clothing", payload.TryOnID))
 		return nil
