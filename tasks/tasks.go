@@ -604,8 +604,10 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 		return err
 	}
 	clothingLLMResponseText := clothingLLMResponse.Response
-	if clothingLLMResponseText != "" {
-		fmt.Printf("[Try on Gen: %v] Response is nil but no error provided on generating study material %s: %s", payload.TryOnID, "", clothingLLMResponseText)
+	if strings.Contains(clothingLLMResponseText, "NO_PERSON") {
+		saveTryOnGenerationFail(db, tryOnGeneration, "No person detected in the image, please try to upload new avatar", false)
+		sentry.CaptureException(fmt.Errorf("[Avatar: %v] No person detected in the image on generating tryon %s: %v", payload.UserID, "", err))
+		return fmt.Errorf("[Avatar: %v] No person detected in the image on generating tryon %s: %v", payload.UserID, "", err)
 	}
 	if len(clothingLLMResponse.Images) == 0 {
 		sentry.CaptureException(fmt.Errorf("[Try on Gen: %v] Response image is nil or empty on generating try on %s: %v", payload.TryOnID, "", err))
