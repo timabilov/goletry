@@ -212,73 +212,68 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 		APIKey:  os.Getenv("GOOGLE_API_KEY"),
 		Backend: genai.BackendGeminiAPI,
 	})
-	// filter null and keep only existing images in filePaths,rewrite
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// This file must exist in the same folder as your executable.
+	const whiteCanvasPath = "white_540x960.png"
 
 	var genFiles []*genai.File
 
-	genFile, err := tryUploadGoogleStorage(ctx, client, personAvatarPath, nil)
+	// 1. Upload the user's avatar
+	personAvatarFile, err := tryUploadGoogleStorage(ctx, client, personAvatarPath, nil)
 	if err != nil {
 		fmt.Println("Error uploading person avatar file:", personAvatarPath, err)
-		return nil, fmt.Errorf("error uploading file %s: %v", personAvatarPath, err)
+		return nil, fmt.Errorf("error uploading person avatar file %s: %v", personAvatarPath, err)
 	}
-	genFiles = append(genFiles, genFile)
-	// Upload each file and get the URI
+	genFiles = append(genFiles, personAvatarFile)
+	fmt.Println("Successfully uploaded person avatar:", personAvatarPath)
 
+	whiteCanvasFile, err := tryUploadGoogleStorage(ctx, client, whiteCanvasPath, nil)
+	if err != nil {
+		fmt.Println("Error uploading white canvas file:", whiteCanvasPath, err)
+		return nil, fmt.Errorf("error uploading white canvas file %s: %v", whiteCanvasPath, err)
+	}
+	genFiles = append(genFiles, whiteCanvasFile)
+	fmt.Println("Successfully uploaded white canvas:", whiteCanvasPath)
+
+	// [Image1, Image2, Text]
 	var parts []*genai.Part
-	// generate pars from for each file then merge it with text
-	for i, genFile := range genFiles {
-		fmt.Println("File path for image parse:", i, " ", genFile.URI, genFile.MIMEType)
+
+	// First, add all the image file parts.
+	for _, genFile := range genFiles {
+		fmt.Println("Adding image part for:", genFile.URI)
 		parts = append(parts, &genai.Part{
 			FileData: &genai.FileData{
 				FileURI:  genFile.URI,
 				MIMEType: genFile.MIMEType,
 			},
 		})
-		//Claude: Generate full body 9:16 e-commerce style photo: user in neutral white shirt and trousers on pure white (#FFFFFF) background. Keep all facial features, body proportions, and personality traits exact. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return "NO_PERSON". Output only person on white background.
-		parts = append(parts, &genai.Part{
-			Text: "Generate full body 9:16 e-commerce style photo: user in neutral white shirt and trousers on pure white (#FFFFFF) background. Keep all facial features, body proportions, and personality traits exact. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return \"NO_PERSON\". Output only person on white background.",
-		})
 	}
 
-	if err != nil {
-		log.Fatal(err)
-	}
-	//Please use ONLY the following JSON schema for the response:
-	//Note = {'name': string, 'md_summary': string, 'transcription': string, 'quiz_json': Array<{'question': string, 'answer': string, 'options': Array<string>}>}
-	//Return: Note},
-	// result, err := client.Models.GenerateContent(ctx, "gemini-2.5-pro-preview-03-25", []*genai.Content{{Parts: parts}}, nil)
+	// Second, add the text prompt part at the end.
+	// The prompt correctly refers to the "second image" as the background.
+	parts = append(parts, &genai.Part{
+		Text: "Generate full body e-commerce style photo: user in neutral white shirt and trousers and use solid, flat, unlit, white second image as a new  background for person image which will be chromakey. Keep all facial features, body proportions, and personality traits exact. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return \"NO_PERSON\", otherwise output only person on flat all white  second image background. Aspect ratio 9:16 portrait size",
+	})
 
+	// The rest of your function remains the same...
 	result, err := client.Models.GenerateContent(ctx, modelName.String(), []*genai.Content{{Parts: parts}}, &genai.GenerateContentConfig{
-		// ResponseMIMEType: "application/json",
-		CandidateCount: 1,
-		// ThinkingConfig: &genai.ThinkingConfig{
-		// 	IncludeThoughts: true,
-		// SafetySettings: []*genai.SafetySetting{
-		// 	{
-		// 		Method:   genai.HarmBlockMethodSeverity,
-		// 		Category: genai.HarmCategorySexuallyExplicit,
-
-		// 		Threshold: genai.HarmBlockThresholdBlockOnlyHigh,
-		// 	},
-		// },
-		// 	ThinkingBudget:  Int32Pointer(3000),
-		// },
-		// because its youtube it can have more..
 		MaxOutputTokens: 50000,
 		Temperature:     floatPointer(1),
-		// TopK:            floatPointer(0.5),
 		SystemInstruction: &genai.Content{
 			Parts: []*genai.Part{
 				{Text: `If no person detected in the image return NO_PERSON as response. Analyze the image, and provide only an full body avatar.`},
 			},
 		},
 	})
-	// client.Models.Cou
 
 	if err != nil {
 		fmt.Println("Error in GenerateContent:", err)
 		return nil, fmt.Errorf("%v", err)
 	}
+
 	inputTokenCount := result.UsageMetadata.PromptTokenCount
 	thoughtsTokenCount := result.UsageMetadata.ThoughtsTokenCount
 	outpuTokenCount := result.UsageMetadata.CandidatesTokenCount
@@ -287,31 +282,30 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 	fmt.Println("Output token count:", outpuTokenCount)
 	fmt.Println("Thoughts token count:", thoughtsTokenCount)
 	fmt.Println("Total token count:", totalTokenCount)
-	if result.PromptFeedback != nil {
 
+	if result.PromptFeedback != nil {
 		fmt.Println(result.PromptFeedback.BlockReason)
 		fmt.Println(result.PromptFeedback.BlockReasonMessage)
 		fmt.Println(result.PromptFeedback.SafetyRatings)
 		return nil, fmt.Errorf("content violation: %s %s ", personAvatarPath, result.PromptFeedback.BlockReasonMessage)
 	}
+
 	fmt.Println("Number of candidates received:", len(result.Candidates))
 	llmResponseImagesBytes, err := GetAllInlineImages(result)
 	if err != nil {
 		fmt.Println("Error getting first candidate image: ", err)
-
 		fmt.Println(result)
-
-		return nil, fmt.Errorf("error getting first candidate text: %v", err)
+		return nil, fmt.Errorf("error getting first candidate image: %v", err)
 	}
+
 	fmt.Println("Number of images extracted:", len(llmResponseImagesBytes))
 	llmResponseText, err := GetFirstCandidateTextWithThoughts(result)
 	if err != nil {
 		fmt.Println("Error getting first candidate text: ", err)
-
 		fmt.Println(result.Candidates)
 		return nil, fmt.Errorf("error getting first candidate text: %v", err)
 	}
-	// fmt.Pri
+
 	return &LLMResponse{
 		Response:           llmResponseText.Text,
 		Images:             llmResponseImagesBytes,
@@ -322,7 +316,6 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 		TotalTokenCount:    totalTokenCount,
 		IsTest:             false,
 	}, nil
-
 }
 
 func (GoogleLLMNoteProcessor) GenerateTryOn(personAvatarPath string, filePaths []string, modelName LLMModelName) (*LLMResponse, error) {
