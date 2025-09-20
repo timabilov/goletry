@@ -635,8 +635,8 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 	// parse file from Output of ytdlp file path in fmt.Sprintf("clothing-%v.%%(ext)s", clothing.ID)
 	respBody, statusCode, err := awsService.UploadToPresignedURL(context.Background(), bucketName, uploadUrl, generatedImageBytes)
 	fmt.Printf("[Try on: %v] R2 Upload response body: %s, status code: %v\n", payload.TryOnID, respBody, statusCode)
-	if err != nil || statusCode != 204 {
-		fmt.Printf("[Try on Gen: %v] Youtube Error on uploading file %s: %v\n", payload.TryOnID, safeFileName, err)
+	if err != nil || statusCode > 299 {
+		fmt.Printf("[Try on Gen: %v] Try on Error on uploading generated file %s: %v\n", payload.TryOnID, safeFileName, err)
 		sentry.CaptureException(fmt.Errorf("[Try on Gen: %v] Error on uploading file %s: %v", payload.TryOnID, safeFileName, err))
 		return err
 	}
