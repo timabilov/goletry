@@ -621,8 +621,32 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 			fmt.Printf("[Clothing: %v] Successfully removed temporary file %s\n", payload.TryOnID, path)
 		}
 	}(personAvatarPath)
+	// Build characteristics description from user data (same as ProcessAvatarTask)
+	var characteristicsDescription string
+	if user.BodyType != nil && user.ShoulderType != nil && user.BodyToLegRatio != nil && 
+		user.HandType != nil && user.UpperLimbType != nil && user.Weight != nil && 
+		user.Height != nil && user.WaistSize != nil {
+		
+		// Create PersonCharacteristics struct from user data
+		characteristics := services.PersonCharacteristics{
+			BodyType:       services.BodyType(*user.BodyType),
+			ShoulderType:   services.ShoulderType(*user.ShoulderType),
+			BodyToLegRatio: services.BodyToLegRatio(*user.BodyToLegRatio),
+			HandType:       services.HandType(*user.HandType),
+			UpperLimbType:  services.UpperLimbType(*user.UpperLimbType),
+			Weight:         *user.Weight,
+			Height:         *user.Height,
+			WaistSize:      *user.WaistSize,
+		}
+		characteristicsDescription = characteristics.ToDescriptiveSentence()
+		fmt.Printf("[Try on Gen: %v] User characteristics description: %s\n", payload.TryOnID, characteristicsDescription)
+	} else {
+		fmt.Printf("[Try on Gen: %v] User characteristics not available, using default\n", payload.TryOnID)
+		characteristicsDescription = ""
+	}
+
 	fmt.Printf("[Try on Gen: %v] Clothing to wear paths: %v", payload.TryOnID, clothesToWear)
-	clothingLLMResponse, err := llmProcessor.GenerateTryOn(personAvatarPath, clothesToWear, model)
+	clothingLLMResponse, err := llmProcessor.GenerateTryOn(personAvatarPath, clothesToWear, characteristicsDescription, model)
 	fmt.Printf("[Try on Gen: %v] Images length: %d", payload.TryOnID, len(clothingLLMResponse.Images))
 	fmt.Println("Images length:", len(clothingLLMResponse.Images))
 	if err != nil {

@@ -54,6 +54,7 @@ func floatPointer(f float32) *float32 {
 
 // Body characteristic enums
 type BodyType string
+
 const (
 	BodyTypeSlender  BodyType = "slender"
 	BodyTypeAthletic BodyType = "athletic"
@@ -61,6 +62,7 @@ const (
 )
 
 type ShoulderType string
+
 const (
 	ShoulderTypeNarrow        ShoulderType = "narrow"
 	ShoulderTypeProportionate ShoulderType = "proportionate"
@@ -68,20 +70,23 @@ const (
 )
 
 type BodyToLegRatio string
+
 const (
-	BodyToLegRatioLongLegs    BodyToLegRatio = "long_legs"
-	BodyToLegRatioBalanced    BodyToLegRatio = "balanced"
-	BodyToLegRatioLongTorso   BodyToLegRatio = "long_torso"
+	BodyToLegRatioLongLegs  BodyToLegRatio = "long_legs"
+	BodyToLegRatioBalanced  BodyToLegRatio = "balanced"
+	BodyToLegRatioLongTorso BodyToLegRatio = "long_torso"
 )
 
 type HandType string
+
 const (
-	HandTypeSlender     HandType = "slender"
+	HandTypeSlender      HandType = "slender"
 	HandTypeProportioned HandType = "proportioned"
-	HandTypeLarge       HandType = "large"
+	HandTypeLarge        HandType = "large"
 )
 
 type UpperLimbType string
+
 const (
 	UpperLimbTypeSlender  UpperLimbType = "slender"
 	UpperLimbTypeToned    UpperLimbType = "toned"
@@ -108,7 +113,7 @@ var BodyTypeDescriptions = map[BodyType]string{
 
 var ShoulderTypeDescriptions = map[ShoulderType]string{
 	ShoulderTypeNarrow:        "gracefully narrow",
-	ShoulderTypeProportionate: "perfectly proportionate", 
+	ShoulderTypeProportionate: "perfectly proportionate",
 	ShoulderTypeBroad:         "impressively broad",
 }
 
@@ -119,14 +124,14 @@ var BodyToLegRatioDescriptions = map[BodyToLegRatio]string{
 }
 
 var HandTypeDescriptions = map[HandType]string{
-	HandTypeSlender:     "slender hands with long fingers",
+	HandTypeSlender:      "slender hands with long fingers",
 	HandTypeProportioned: "well-proportioned hands",
-	HandTypeLarge:       "large, strong hands",
+	HandTypeLarge:        "large, strong hands",
 }
 
 var UpperLimbTypeDescriptions = map[UpperLimbType]string{
 	UpperLimbTypeSlender:  "long and slender arms",
-	UpperLimbTypeToned:    "toned and defined arms", 
+	UpperLimbTypeToned:    "toned and defined arms",
 	UpperLimbTypeMuscular: "powerful and muscular arms",
 }
 
@@ -160,7 +165,7 @@ type LLMProcessor interface {
 	ProcessClothing(filePath string, modelName LLMModelName) (*LLMResponse, error)
 	ProcessAvatarTask(personAvatarPath string, modelName LLMModelName) (*LLMResponse, error)
 	ProcessAvatarTaskWithCharacteristics(personAvatarPath string, characteristics string, modelName LLMModelName) (*LLMResponse, error)
-	GenerateTryOn(personAvatarPath string, filePaths []string, modelName LLMModelName) (*LLMResponse, error)
+	GenerateTryOn(personAvatarPath string, filePaths []string, characteristics string, modelName LLMModelName) (*LLMResponse, error)
 	AnalyzePersonCharacteristics(imagePath string, modelName LLMModelName) (*PersonCharacteristics, error)
 }
 
@@ -440,7 +445,7 @@ func (GoogleLLMProcessor) ProcessAvatarTaskWithCharacteristics(personAvatarPath 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var genFiles []*genai.File
 
 	personAvatarFile, err := tryUploadGoogleStorage(ctx, client, personAvatarPath, nil)
@@ -473,7 +478,7 @@ func (GoogleLLMProcessor) ProcessAvatarTaskWithCharacteristics(personAvatarPath 
 
 	// Updated prompt that uses the characteristics description
 	promptText := fmt.Sprintf(`Generate a fashion-style full-body commercial head to toe photographer edited portrait of the person from first image by keeping his identity, personality, facial identity(100%% same) and use solid, flat, unlit, white second image as a new background for person image which will be chromakey. keep user facial identity exactly same, unchanged. Person should be in center and should take 70%% of the image area. %s - generate the straight facing the camera and relaxed, coolest, confident pose with neutral white shirt, white trousers and white neutral shoes. The lighting on user should be natural, soft and professional, high-resolution and opening the color of person. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return "NO_PERSON", otherwise output only full-body person, with on flat, consistent, all white second image background. Do not apply slight grayish gradients, keep all edges white. Aspect ratio 9:16 portrait size`, characteristics)
-	
+
 	parts = append(parts, &genai.Part{
 		Text: promptText,
 	})
@@ -537,7 +542,7 @@ func (GoogleLLMProcessor) ProcessAvatarTaskWithCharacteristics(personAvatarPath 
 	}, nil
 }
 
-func (GoogleLLMProcessor) GenerateTryOn(personAvatarPath string, filePaths []string, modelName LLMModelName) (*LLMResponse, error) {
+func (GoogleLLMProcessor) GenerateTryOn(personAvatarPath string, filePaths []string, characteristics string, modelName LLMModelName) (*LLMResponse, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  os.Getenv("GOOGLE_API_KEY"),
@@ -601,7 +606,7 @@ func (GoogleLLMProcessor) GenerateTryOn(personAvatarPath string, filePaths []str
 		// TopK:            floatPointer(0.5),
 		SystemInstruction: &genai.Content{
 			Parts: []*genai.Part{
-				{Text: `Edit first person image into a fashion-style full-body commercial head to toe photographer edited by keeping his identity, personality, placement in image in center, facial identity(100% same) and use the same solid, flat, unlit, white first image background including ratio. Take the all images after first one and let the same exact person from the first image wear it. For missing clothing items, keep original ones that user wears. keep user facial identity exactly same, unchanged. By keeping same personality, identity and exact same body/hand/head/leg sizes - generate the straight facing the camera and relaxed, coolest, confident pose with neutral white shirt, white trousers and white neutral shoes. The lighting on user should be natural, soft and professional, high-resolution and opening the color of person. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return "NO_PERSON", otherwise output only full-body person, with on flat, consistent, all white second image background. Do not apply slight grayish gradients, keep all edges white. Aspect ratio 9:16 portrait size`},
+				{Text: fmt.Sprintf(`Edit first person image into a fashion-style full-body commercial head to toe photographer edited by keeping his identity, personality, placement in image in center, facial identity(100%% same) and use the same solid, flat, unlit, white first image background including ratio. Take the all images after first one and let the same exact person from the first image wear it. For missing clothing items, keep original ones that user wears. keep user facial identity exactly same, unchanged. Give attention to person body characteristics when wearing. %s - generate the straight facing the camera and relaxed, coolest, confident pose with neutral white shirt, white trousers and white neutral shoes. The lighting on user should be natural, soft and professional, high-resolution and opening the color of person. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return "NO_PERSON", otherwise output only full-body person, with on flat, consistent, all white second image background. Do not apply slight grayish gradients, keep all edges white. Aspect ratio 9:16 portrait size`, characteristics)},
 			},
 		},
 	})
@@ -718,7 +723,7 @@ Categories:
 					Enum: []string{"slender", "athletic", "robust"},
 				},
 				"shoulder_type": {
-					Type: "string", 
+					Type: "string",
 					Enum: []string{"narrow", "proportionate", "broad"},
 				},
 				"body_to_leg_ratio": {
