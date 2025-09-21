@@ -185,7 +185,7 @@ func GetFirstCandidateTextWithThoughts(result *genai.GenerateContentResponse) (*
 			for _, rating := range c.SafetyRatings {
 				fmt.Println("[Safety] rating:", rating.Category, "Score:", rating.Probability, "Severity score:", rating.SeverityScore, " Blocked:", rating.Blocked)
 				if rating.Blocked {
-					return nil, fmt.Errorf("content violation: Couldn't analyze the note, because it contains %s,", rating.Category)
+					return nil, fmt.Errorf("content violation: Couldn't analyze the image, because it contains %s,", rating.Category)
 				}
 			}
 		}
