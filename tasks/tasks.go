@@ -604,9 +604,7 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 		return err
 	}
 	clothingLLMResponseText := clothingLLMResponse.Response
-	if clothingLLMResponseText != "" {
-		fmt.Printf("[Try on Gen: %v] Response has text on generating %s: %s", payload.TryOnID, "", clothingLLMResponseText)
-	}
+	fmt.Printf("[Try on Gen: %v] Response text on generating %s: %s", payload.TryOnID, "", clothingLLMResponseText)
 
 	if strings.Contains(clothingLLMResponseText, "NO_PERSON") {
 		saveTryOnGenerationFail(db, tryOnGeneration, "No person detected in the image, please try to upload new avatar", false)
@@ -627,7 +625,6 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 	// 	log.Fatalf("failed to write file: %s", err)
 	// }
 
-	fmt.Println("Successfully wrote data to file1.txt")
 	var bucketName = services.GetEnv("R2_BUCKET_NAME", "")
 	// todo clean and map the same file name as in FE UI otherwise **FAIL**
 	safeFileName := fmt.Sprintf("/tryon/%v/generation/%s", tryOnGeneration.ID, "generation.png")
