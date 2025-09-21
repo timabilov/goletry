@@ -275,7 +275,9 @@ func ProcessAvatarTask(
 		sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error on uploading file %s: %v", payload.UserID, safeFileName, err))
 		return err
 	}
-	fmt.Printf("[Avatar: %v] Success.. Removing local one\n", payload.UserID)
+	time.Sleep(1 * time.Second) // wait for r2 to be ready
+	fetchR2File(awsService, &safeFileName, "Avatar-FetchCheck")
+	// fmt.Printf("[Avatar: %v] Success.. Removing local one\n", payload.UserID)
 	user.UserFullBodyImageURL = &safeFileName
 	user.FullBodyAvatarStatus = "completed"
 
@@ -294,7 +296,7 @@ func ProcessAvatarTask(
 		sentry.CaptureException(fmt.Errorf("[Avatar %v] Error on saving avatar at the end", payload.UserID))
 		return tx.Error
 	}
-	fmt.Printf("[Avatar: %v] Generation finished succesfully..", payload.UserID)
+	fmt.Printf("[Avatar: %v] Generation finished succesfully..\n", payload.UserID)
 
 	// Save result back to database
 	return nil
