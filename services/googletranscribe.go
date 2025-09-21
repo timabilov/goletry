@@ -189,15 +189,18 @@ func GetFirstCandidateTextWithThoughts(result *genai.GenerateContentResponse) (*
 				}
 			}
 		}
-		for _, part := range c.Content.Parts {
-			if part.Thought && part.Text != "" {
-				if result.UsageMetadata != nil && result.UsageMetadata.ThoughtsTokenCount > 25000 {
-					fmt.Println("Warning: Thought content is too long:", result.UsageMetadata.ThoughtsTokenCount, part.Text)
-				}
-				thinkingContent = part.Text
-				continue
-			}
+		if len(c.Content.Parts) > 0 {
 
+			for _, part := range c.Content.Parts {
+				if part.Thought && part.Text != "" {
+					if result.UsageMetadata != nil && result.UsageMetadata.ThoughtsTokenCount > 25000 {
+						fmt.Println("Warning: Thought content is too long:", result.UsageMetadata.ThoughtsTokenCount, part.Text)
+					}
+					thinkingContent = part.Text
+					continue
+				}
+
+			}
 		}
 	}
 	return &ResponseWithThoughts{
