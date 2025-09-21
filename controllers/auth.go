@@ -756,6 +756,15 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			FullBodyAvatarStatus:                 user.FullBodyAvatarStatus,
 			FullBodyAvatarProcessingErrorMessage: user.FullBodyAvatarProcessingErrorMessage,
 			ReceiveSalesNotifications:            user.ReceiveNotifications,
+			// Person characteristics
+			BodyType:       user.BodyType,
+			ShoulderType:   user.ShoulderType,
+			BodyToLegRatio: user.BodyToLegRatio,
+			HandType:       user.HandType,
+			UpperLimbType:  user.UpperLimbType,
+			Weight:         user.Weight,
+			Height:         user.Height,
+			WaistSize:      user.WaistSize,
 		})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
 
@@ -950,5 +959,65 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to save your avatar"})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "Avatar is updated successfully", "upload_url": uploadUrl, "processing_status": user.FullBodyAvatarStatus, "file_name": *req.FileName})
+	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
+
+	g.POST("/body-characteristic", func(c echo.Context) error {
+		// Get user from context
+		user, ok := c.Get("currentUser").(models.UserAccount)
+		if !ok {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		}
+
+		var req models.PersonCharacteristicsIn
+		if err := c.Bind(&req); err != nil {
+			fmt.Println(err)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		}
+
+		// Validate request
+		if err := c.Validate(req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+
+		// Get database from context
+		db, ok := c.Get("__db").(*gorm.DB)
+		if !ok {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Our service is not available, please try again a bit later"})
+		}
+
+		// Update user characteristics - only set fields that are provided
+		if req.BodyType != nil {
+			user.BodyType = req.BodyType
+		}
+		if req.ShoulderType != nil {
+			user.ShoulderType = req.ShoulderType
+		}
+		if req.BodyToLegRatio != nil {
+			user.BodyToLegRatio = req.BodyToLegRatio
+		}
+		if req.HandType != nil {
+			user.HandType = req.HandType
+		}
+		if req.UpperLimbType != nil {
+			user.UpperLimbType = req.UpperLimbType
+		}
+		if req.Weight != nil {
+			user.Weight = req.Weight
+		}
+		if req.Height != nil {
+			// Convert float64 to string for storage
+			heightStr := fmt.Sprintf("%.2f", *req.Height)
+			user.Height = &heightStr
+		}
+		if req.WaistSize != nil {
+			user.WaistSize = req.WaistSize
+		}
+
+		// Save to database
+		if err := db.Save(&user).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to save your body characteristics"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Body characteristics updated successfully"})
 	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
 }

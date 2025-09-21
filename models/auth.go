@@ -85,6 +85,15 @@ type UserMeInfoV2Out struct {
 	FullBodyAvatarProcessingErrorMessage *string                `json:"full_body_avatar_processing_error_message"`
 	FullBodyAvatarSet                    bool                   `json:"full_body_avatar_set"`
 	FullBodyAvatarStatus                 string                 `json:"full_body_avatar_status"`
+	// Person characteristics
+	BodyType       *string `json:"body_type"`
+	ShoulderType   *string `json:"shoulder_type"`
+	BodyToLegRatio *string `json:"body_to_leg_ratio"`
+	HandType       *string `json:"hand_type"`
+	UpperLimbType  *string `json:"upper_limb_type"`
+	Weight         *int    `json:"weight"`
+	Height         *string `json:"height"`
+	WaistSize      *int    `json:"waist_size"`
 }
 
 type UserInfoOut struct {
@@ -156,4 +165,15 @@ type CompanyUpdateIn struct {
 type MemberAddIn struct {
 	Email string `json:"email"`
 	Role  Role   `json:"role"`
+}
+
+type PersonCharacteristicsIn struct {
+	BodyType       *string  `json:"body_type" validate:"omitempty,oneof=slender athletic robust"`
+	ShoulderType   *string  `json:"shoulder_type" validate:"omitempty,oneof=narrow proportionate broad"`
+	BodyToLegRatio *string  `json:"body_to_leg_ratio" validate:"omitempty,oneof=long_legs balanced long_torso"`
+	HandType       *string  `json:"hand_type" validate:"omitempty,oneof=slender proportioned large"`
+	UpperLimbType  *string  `json:"upper_limb_type" validate:"omitempty,oneof=slender toned muscular"`
+	Weight         *int     `json:"weight" validate:"omitempty,min=30,max=300"`
+	Height         *float64 `json:"height" validate:"omitempty,min=1.0,max=2.5"`
+	WaistSize      *int     `json:"waist_size" validate:"omitempty,min=50,max=200"`
 }

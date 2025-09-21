@@ -42,6 +42,15 @@ type UserAccount struct {
 	LLMOutputTokenCount   *int32  `json:"llm_output_token_count"`
 	LLMThoughts           *string `json:"llm_thoughts"`
 	LLMModel              *string `json:"llm_model"`
+	// Person characteristics for avatar generation
+	BodyType       *string `json:"body_type"`
+	ShoulderType   *string `json:"shoulder_type"`
+	BodyToLegRatio *string `json:"body_to_leg_ratio"`
+	HandType       *string `json:"hand_type"`
+	UpperLimbType  *string `json:"upper_limb_type"`
+	Weight         *int    `json:"weight"`
+	Height         *string `json:"height"`
+	WaistSize      *int    `json:"waist_size"`
 	// Active                    bool `json:"active"`
 }
 

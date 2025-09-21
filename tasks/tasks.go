@@ -216,7 +216,7 @@ func ProcessAvatarTask(
 	// }
 
 	fmt.Printf("[Avatar: %v] Avatar url %s\n", payload.UserID, *user.UserFullBodyImageURL)
-	fmt.Printf("[Avatar: %v] Downloaded avatar: %v:", payload.UserID, imgPath)
+	fmt.Printf("[Avatar: %v] Downloaded avatar: %v\n", payload.UserID, imgPath)
 
 	// Analyze person characteristics first
 	fmt.Printf("[Avatar: %v] Analyzing person characteristics...\n", payload.UserID)
@@ -227,7 +227,23 @@ func ProcessAvatarTask(
 		return err
 	}
 	fmt.Printf("[Avatar: %v] Person characteristics: %+v\n", payload.UserID, characteristics)
+
+	// Save characteristics to user model
+	bodyTypeStr := string(characteristics.BodyType)
+	shoulderTypeStr := string(characteristics.ShoulderType)
+	bodyToLegRatioStr := string(characteristics.BodyToLegRatio)
+	handTypeStr := string(characteristics.HandType)
+	upperLimbTypeStr := string(characteristics.UpperLimbType)
 	
+	user.BodyType = &bodyTypeStr
+	user.ShoulderType = &shoulderTypeStr
+	user.BodyToLegRatio = &bodyToLegRatioStr
+	user.HandType = &handTypeStr
+	user.UpperLimbType = &upperLimbTypeStr
+	user.Weight = &characteristics.Weight
+	user.Height = &characteristics.Height
+	user.WaistSize = &characteristics.WaistSize
+
 	// Generate descriptive sentence for avatar generation
 	characteristicsDescription := characteristics.ToDescriptiveSentence()
 	fmt.Printf("[Avatar: %v] Characteristics description: %s\n", payload.UserID, characteristicsDescription)
