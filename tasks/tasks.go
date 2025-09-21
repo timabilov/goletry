@@ -630,6 +630,7 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 	safeFileName := fmt.Sprintf("/tryon/%v/generation/%s", tryOnGeneration.ID, "generation.png")
 
 	uploadUrl, presignErr := awsService.PresignLink(context.Background(), bucketName, safeFileName)
+	fmt.Printf("[Try on Gen: %v] Upload url generated: %s\n", payload.TryOnID, uploadUrl)
 	if presignErr != nil {
 		fmt.Printf("[Try on Gen: %v] Youtube Unable to create presign link for tryon %s!\n", tryOnGeneration.ID, presignErr)
 		sentry.CaptureException(fmt.Errorf("[Clothing: %v] Unable to create presign for tryon %s", payload.TryOnID, presignErr))
@@ -643,7 +644,11 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 		sentry.CaptureException(fmt.Errorf("[Try on Gen: %v] Error on uploading file %s: %v", payload.TryOnID, safeFileName, err))
 		return err
 	}
-	fmt.Printf("[Try on Gen: %v] Success url: %s\n", payload.TryOnID, uploadUrl)
+	time.Sleep(1 * time.Second) // wait for r2 to be ready
+	// just fetch for logs
+	fetchR2File(awsService, &safeFileName, "TryOnGen-FetchCheck")
+
+	fmt.Printf("[Try on Gen: %v] Successfully uploaded to R2: %s\n", payload.TryOnID, uploadUrl)
 	tryOnGeneration.TryOnPreviewImageURL = &safeFileName
 	tryOnGeneration.Status = "completed"
 
