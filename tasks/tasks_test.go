@@ -80,7 +80,7 @@ func TestTryOnGeneratingTask(t *testing.T) {
 	awsServiceMock := &test.AWSProviderMock{MockUrl: mockServer.URL}
 
 	// err = HandleTranscribeNoteTask(context.Background(), fakeTask, test.MockGoogleTranscriber{}, awsServiceMock)
-	err = HandleTryOnGenerationTask(context.Background(), fakeTask, db, &services.GoogleLLMNoteProcessor{}, awsServiceMock)
+	err = HandleTryOnGenerationTask(context.Background(), fakeTask, db, &services.GoogleLLMProcessor{}, awsServiceMock)
 	assert.NoError(t, err)
 	// Assertions
 

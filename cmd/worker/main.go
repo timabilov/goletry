@@ -60,7 +60,7 @@ func main() {
 		}},
 	)
 	awsService := &services.AWSService{}
-	llmProcessor := &services.GoogleLLMNoteProcessor{}
+	llmProcessor := &services.GoogleLLMProcessor{}
 	err := awsService.InitPresignClient(context.Background())
 	if err != nil {
 		log.Fatal("[Queue] Failed to initialize AWS provider: S3")

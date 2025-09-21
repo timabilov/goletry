@@ -217,13 +217,22 @@ func ProcessAvatarTask(
 
 	fmt.Printf("[Avatar: %v] Avatar url %s\n", payload.UserID, *user.UserFullBodyImageURL)
 	fmt.Printf("[Avatar: %v] Downloaded avatar: %v:", payload.UserID, imgPath)
-	// if db.Save(&user).Error != nil {
-	// 	fmt.Printf("[Avatar: %v] Error on saving clothing type detect %v", payload.UserID, err)
-	// 	saveUserAvatarProcessingFail(db, user, "Failed to determine clothing type, please try to create new clothing", true)
-	// 	sentry.CaptureException(fmt.Errorf("[Avatar: %v] Error on saving clothing mid type detect %v", payload.UserID, err))
-	// }
 
-	clothingLLMResponse, err = transcriber.ProcessAvatarTask(imgPath, services.Flash25Image)
+	// Analyze person characteristics first
+	fmt.Printf("[Avatar: %v] Analyzing person characteristics...\n", payload.UserID)
+	characteristics, err := transcriber.AnalyzePersonCharacteristics(imgPath, services.Pro25)
+	if err != nil {
+		fmt.Printf("[Avatar: %v] Error analyzing person characteristics: %v\n", payload.UserID, err)
+		saveUserAvatarProcessingFail(db, user, "Failed to analyze person characteristics, please try again", true)
+		return err
+	}
+	fmt.Printf("[Avatar: %v] Person characteristics: %+v\n", payload.UserID, characteristics)
+	
+	// Generate descriptive sentence for avatar generation
+	characteristicsDescription := characteristics.ToDescriptiveSentence()
+	fmt.Printf("[Avatar: %v] Characteristics description: %s\n", payload.UserID, characteristicsDescription)
+
+	clothingLLMResponse, err = transcriber.ProcessAvatarTaskWithCharacteristics(imgPath, characteristicsDescription, services.Flash25Image)
 	fmt.Printf("[Avatar: %v] Images length: %d", payload.UserID, len(clothingLLMResponse.Images))
 	fmt.Println("Images length:", len(clothingLLMResponse.Images))
 	if err != nil {

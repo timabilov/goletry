@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -51,6 +52,98 @@ func floatPointer(f float32) *float32 {
 	return &f
 }
 
+// Body characteristic enums
+type BodyType string
+const (
+	BodyTypeSlender  BodyType = "slender"
+	BodyTypeAthletic BodyType = "athletic"
+	BodyTypeRobust   BodyType = "robust"
+)
+
+type ShoulderType string
+const (
+	ShoulderTypeNarrow        ShoulderType = "narrow"
+	ShoulderTypeProportionate ShoulderType = "proportionate"
+	ShoulderTypeBroad         ShoulderType = "broad"
+)
+
+type BodyToLegRatio string
+const (
+	BodyToLegRatioLongLegs    BodyToLegRatio = "long_legs"
+	BodyToLegRatioBalanced    BodyToLegRatio = "balanced"
+	BodyToLegRatioLongTorso   BodyToLegRatio = "long_torso"
+)
+
+type HandType string
+const (
+	HandTypeSlender     HandType = "slender"
+	HandTypeProportioned HandType = "proportioned"
+	HandTypeLarge       HandType = "large"
+)
+
+type UpperLimbType string
+const (
+	UpperLimbTypeSlender  UpperLimbType = "slender"
+	UpperLimbTypeToned    UpperLimbType = "toned"
+	UpperLimbTypeMuscular UpperLimbType = "muscular"
+)
+
+type PersonCharacteristics struct {
+	BodyType       BodyType       `json:"body_type"`
+	ShoulderType   ShoulderType   `json:"shoulder_type"`
+	BodyToLegRatio BodyToLegRatio `json:"body_to_leg_ratio"`
+	HandType       HandType       `json:"hand_type"`
+	UpperLimbType  UpperLimbType  `json:"upper_limb_type"`
+	Weight         int            `json:"weight"`
+	Height         string         `json:"height"`
+	WaistSize      int            `json:"waist_size"`
+}
+
+// Mapping functions for descriptive phrases
+var BodyTypeDescriptions = map[BodyType]string{
+	BodyTypeSlender:  "slender and fine-boned",
+	BodyTypeAthletic: "well-proportioned and athletic",
+	BodyTypeRobust:   "robust and broad-framed",
+}
+
+var ShoulderTypeDescriptions = map[ShoulderType]string{
+	ShoulderTypeNarrow:        "gracefully narrow",
+	ShoulderTypeProportionate: "perfectly proportionate", 
+	ShoulderTypeBroad:         "impressively broad",
+}
+
+var BodyToLegRatioDescriptions = map[BodyToLegRatio]string{
+	BodyToLegRatioLongLegs:  "long legs with a compact torso",
+	BodyToLegRatioBalanced:  "a balanced torso-to-leg ratio",
+	BodyToLegRatioLongTorso: "a long torso with shorter legs",
+}
+
+var HandTypeDescriptions = map[HandType]string{
+	HandTypeSlender:     "slender hands with long fingers",
+	HandTypeProportioned: "well-proportioned hands",
+	HandTypeLarge:       "large, strong hands",
+}
+
+var UpperLimbTypeDescriptions = map[UpperLimbType]string{
+	UpperLimbTypeSlender:  "long and slender arms",
+	UpperLimbTypeToned:    "toned and defined arms", 
+	UpperLimbTypeMuscular: "powerful and muscular arms",
+}
+
+// Helper method to generate descriptive sentence
+func (p *PersonCharacteristics) ToDescriptiveSentence() string {
+	return fmt.Sprintf("The person in image has a %s build, %s shoulders, %s, %s, and %s. Person approximate weight is: %d kg, height is: %s m, waist size: %d cm",
+		BodyTypeDescriptions[p.BodyType],
+		ShoulderTypeDescriptions[p.ShoulderType],
+		BodyToLegRatioDescriptions[p.BodyToLegRatio],
+		HandTypeDescriptions[p.HandType],
+		UpperLimbTypeDescriptions[p.UpperLimbType],
+		p.Weight,
+		p.Height,
+		p.WaistSize,
+	)
+}
+
 type LLMResponse struct {
 	Response           string   `json:"response"`
 	Images             [][]byte `json:"images,omitempty"`
@@ -66,7 +159,9 @@ type LLMResponse struct {
 type LLMProcessor interface {
 	ProcessClothing(filePath string, modelName LLMModelName) (*LLMResponse, error)
 	ProcessAvatarTask(personAvatarPath string, modelName LLMModelName) (*LLMResponse, error)
+	ProcessAvatarTaskWithCharacteristics(personAvatarPath string, characteristics string, modelName LLMModelName) (*LLMResponse, error)
 	GenerateTryOn(personAvatarPath string, filePaths []string, modelName LLMModelName) (*LLMResponse, error)
+	AnalyzePersonCharacteristics(imagePath string, modelName LLMModelName) (*PersonCharacteristics, error)
 }
 
 type QuizObject struct {
@@ -96,7 +191,7 @@ type NoteTranscribeResponse struct {
 	Language      string `json:"language"`
 }
 
-type GoogleLLMNoteProcessor struct{}
+type GoogleLLMProcessor struct{}
 
 func Int64Pointer(i int64) *int64 {
 	return &i
@@ -209,7 +304,7 @@ func GetFirstCandidateTextWithThoughts(result *genai.GenerateContentResponse) (*
 	}, nil
 }
 
-func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelName LLMModelName) (*LLMResponse, error) {
+func (GoogleLLMProcessor) ProcessAvatarTask(personAvatarPath string, modelName LLMModelName) (*LLMResponse, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  os.Getenv("GOOGLE_API_KEY"),
@@ -330,7 +425,119 @@ func (GoogleLLMNoteProcessor) ProcessAvatarTask(personAvatarPath string, modelNa
 	}, nil
 }
 
-func (GoogleLLMNoteProcessor) GenerateTryOn(personAvatarPath string, filePaths []string, modelName LLMModelName) (*LLMResponse, error) {
+func (GoogleLLMProcessor) ProcessAvatarTaskWithCharacteristics(personAvatarPath string, characteristics string, modelName LLMModelName) (*LLMResponse, error) {
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  os.Getenv("GOOGLE_API_KEY"),
+		Backend: genai.BackendGeminiAPI,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	const whiteCanvasPath = "./white_540x960.png"
+	_, err = os.Open(whiteCanvasPath)
+	if err != nil {
+		return nil, err
+	}
+	
+	var genFiles []*genai.File
+
+	personAvatarFile, err := tryUploadGoogleStorage(ctx, client, personAvatarPath, nil)
+	if err != nil {
+		fmt.Println("Error uploading person avatar file:", personAvatarPath, err)
+		return nil, fmt.Errorf("error uploading person avatar file %s: %v", personAvatarPath, err)
+	}
+	genFiles = append(genFiles, personAvatarFile)
+	fmt.Println("Successfully uploaded person avatar:", personAvatarPath)
+
+	whiteCanvasFile, err := tryUploadGoogleStorage(ctx, client, whiteCanvasPath, nil)
+	if err != nil {
+		fmt.Println("Error uploading white canvas file:", whiteCanvasPath, err)
+		return nil, fmt.Errorf("error uploading white canvas file %s: %v", whiteCanvasPath, err)
+	}
+	genFiles = append(genFiles, whiteCanvasFile)
+	fmt.Println("Successfully uploaded white canvas:", whiteCanvasPath)
+
+	var parts []*genai.Part
+
+	for _, genFile := range genFiles {
+		fmt.Println("Adding image part for:", genFile.URI)
+		parts = append(parts, &genai.Part{
+			FileData: &genai.FileData{
+				FileURI:  genFile.URI,
+				MIMEType: genFile.MIMEType,
+			},
+		})
+	}
+
+	// Updated prompt that uses the characteristics description
+	promptText := fmt.Sprintf(`Generate a fashion-style full-body commercial head to toe photographer edited portrait of the person from first image by keeping his identity, personality, facial identity(100%% same) and use solid, flat, unlit, white second image as a new background for person image which will be chromakey. keep user facial identity exactly same, unchanged. Person should be in center and should take 70%% of the image area. %s - generate the straight facing the camera and relaxed, coolest, confident pose with neutral white shirt, white trousers and white neutral shoes. The lighting on user should be natural, soft and professional, high-resolution and opening the color of person. Remove items from hands, position neutrally with slight smile. Clean all background elements, watermarks, other people/objects. If no person detected: return "NO_PERSON", otherwise output only full-body person, with on flat, consistent, all white second image background. Do not apply slight grayish gradients, keep all edges white. Aspect ratio 9:16 portrait size`, characteristics)
+	
+	parts = append(parts, &genai.Part{
+		Text: promptText,
+	})
+
+	result, err := client.Models.GenerateContent(ctx, modelName.String(), []*genai.Content{{Parts: parts}}, &genai.GenerateContentConfig{
+		MaxOutputTokens: 50000,
+		Temperature:     floatPointer(1),
+		SystemInstruction: &genai.Content{
+			Parts: []*genai.Part{
+				{Text: `If no person detected in the image return NO_PERSON as response. Analyze the image, and provide only a full body avatar with the specified characteristics.`},
+			},
+		},
+	})
+
+	if err != nil {
+		fmt.Println("Error in GenerateContent:", err)
+		return nil, fmt.Errorf("%v", err)
+	}
+
+	inputTokenCount := result.UsageMetadata.PromptTokenCount
+	thoughtsTokenCount := result.UsageMetadata.ThoughtsTokenCount
+	outpuTokenCount := result.UsageMetadata.CandidatesTokenCount
+	totalTokenCount := result.UsageMetadata.TotalTokenCount
+	fmt.Println("Input token count:", inputTokenCount)
+	fmt.Println("Output token count:", outpuTokenCount)
+	fmt.Println("Thoughts token count:", thoughtsTokenCount)
+	fmt.Println("Total token count:", totalTokenCount)
+
+	if result.PromptFeedback != nil {
+		fmt.Println(result.PromptFeedback.BlockReason)
+		fmt.Println(result.PromptFeedback.BlockReasonMessage)
+		fmt.Println(result.PromptFeedback.SafetyRatings)
+		return nil, fmt.Errorf("content violation: %s %s ", personAvatarPath, result.PromptFeedback.BlockReasonMessage)
+	}
+
+	fmt.Println("Number of candidates received:", len(result.Candidates))
+	llmResponseImagesBytes, err := GetAllInlineImages(result)
+	if err != nil {
+		fmt.Println("Error getting first candidate image: ", err)
+		fmt.Println(result)
+		return nil, fmt.Errorf("error getting first candidate image: %v", err)
+	}
+
+	fmt.Println("Number of images extracted:", len(llmResponseImagesBytes))
+	llmResponseText, err := GetFirstCandidateTextWithThoughts(result)
+	if err != nil {
+		fmt.Println("Error getting first candidate text: ", err)
+		fmt.Println(result.Candidates)
+		return nil, fmt.Errorf("error getting first candidate text: %v", err)
+	}
+
+	return &LLMResponse{
+		Response:           llmResponseText.Text,
+		Images:             llmResponseImagesBytes,
+		Thoughts:           llmResponseText.Thoughts,
+		InputTokenCount:    inputTokenCount,
+		ThoughtsTokenCount: thoughtsTokenCount,
+		OutputTokenCount:   outpuTokenCount,
+		TotalTokenCount:    totalTokenCount,
+		IsTest:             false,
+	}, nil
+}
+
+func (GoogleLLMProcessor) GenerateTryOn(personAvatarPath string, filePaths []string, modelName LLMModelName) (*LLMResponse, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  os.Getenv("GOOGLE_API_KEY"),
@@ -452,7 +659,116 @@ func (GoogleLLMNoteProcessor) GenerateTryOn(personAvatarPath string, filePaths [
 
 var dashAlphaRule = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 
-func (GoogleLLMNoteProcessor) ProcessClothing(filePath string, modelName LLMModelName) (*LLMResponse, error) {
+func (GoogleLLMProcessor) AnalyzePersonCharacteristics(imagePath string, modelName LLMModelName) (*PersonCharacteristics, error) {
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  os.Getenv("GOOGLE_API_KEY"),
+		Backend: genai.BackendGeminiAPI,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	genFile, err := tryUploadGoogleStorage(ctx, client, imagePath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error uploading image for analysis %s: %v", imagePath, err)
+	}
+
+	parts := []*genai.Part{
+		{
+			FileData: &genai.FileData{
+				FileURI:  genFile.URI,
+				MIMEType: genFile.MIMEType,
+			},
+		},
+		{
+			Text: `Analyze the person in the provided image and determine their body characteristics.
+
+Instructions:
+- Choose exactly one option from each category
+- If a feature is between options, choose the more distinctive edge option
+- Be realistic with weight, height, and waist measurements
+
+Categories:
+1. Body Type: slender (skinny/lean), athletic (average/mesomorphic), robust (large/endomorphic)
+2. Shoulder Type: narrow (sloped/narrow), proportionate (average), broad (wide/muscular)  
+3. Body-to-Leg Ratio: long_legs (tall appearance), balanced (average), long_torso (grounded appearance)
+4. Hand Type: slender (slim/small), proportioned (average), large (broad/big)
+5. Upper Limb Type: slender (thin/wiry), toned (athletic/moderate), muscular (large/heavily muscled)
+6. Weight: realistic weight in kg based on body structure
+7. Height: realistic height in meters (e.g., "1.72")  
+8. Waist Size: realistic waist circumference in cm`,
+		},
+	}
+
+	result, err := client.Models.GenerateContent(ctx, modelName.String(), []*genai.Content{{Parts: parts}}, &genai.GenerateContentConfig{
+		ResponseMIMEType: "application/json",
+		MaxOutputTokens:  4000,
+		Temperature:      floatPointer(0.2),
+		SystemInstruction: &genai.Content{
+			Parts: []*genai.Part{
+				{Text: `You are an expert body analysis AI. Analyze the person carefully and return compact enum values with realistic measurements.`},
+			},
+		},
+		ResponseSchema: &genai.Schema{
+			Type: "object",
+			Properties: map[string]*genai.Schema{
+				"body_type": {
+					Type: "string",
+					Enum: []string{"slender", "athletic", "robust"},
+				},
+				"shoulder_type": {
+					Type: "string", 
+					Enum: []string{"narrow", "proportionate", "broad"},
+				},
+				"body_to_leg_ratio": {
+					Type: "string",
+					Enum: []string{"long_legs", "balanced", "long_torso"},
+				},
+				"hand_type": {
+					Type: "string",
+					Enum: []string{"slender", "proportioned", "large"},
+				},
+				"upper_limb_type": {
+					Type: "string",
+					Enum: []string{"slender", "toned", "muscular"},
+				},
+				"weight": {
+					Type: "integer",
+				},
+				"height": {
+					Type: "string",
+				},
+				"waist_size": {
+					Type: "integer",
+				},
+			},
+			Required: []string{"body_type", "shoulder_type", "body_to_leg_ratio", "hand_type", "upper_limb_type", "weight", "height", "waist_size"},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error analyzing person characteristics: %v", err)
+	}
+
+	if result.PromptFeedback != nil {
+		return nil, fmt.Errorf("content violation during person analysis: %s", result.PromptFeedback.BlockReasonMessage)
+	}
+
+	responseText := result.Text()
+	if responseText == "" {
+		return nil, fmt.Errorf("empty response from person characteristics analysis")
+	}
+
+	var characteristics PersonCharacteristics
+	if err := json.Unmarshal([]byte(responseText), &characteristics); err != nil {
+		return nil, fmt.Errorf("error parsing person characteristics JSON: %v", err)
+	}
+
+	return &characteristics, nil
+}
+
+func (GoogleLLMProcessor) ProcessClothing(filePath string, modelName LLMModelName) (*LLMResponse, error) {
 	return nil, nil
 	// 	ctx := context.Background()
 	// 	// fileName
