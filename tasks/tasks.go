@@ -234,7 +234,7 @@ func ProcessAvatarTask(
 	bodyToLegRatioStr := string(characteristics.BodyToLegRatio)
 	handTypeStr := string(characteristics.HandType)
 	upperLimbTypeStr := string(characteristics.UpperLimbType)
-	
+
 	user.BodyType = &bodyTypeStr
 	user.ShoulderType = &shoulderTypeStr
 	user.BodyToLegRatio = &bodyToLegRatioStr
@@ -528,7 +528,7 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 		sentry.CaptureException(fmt.Errorf("[Try on Gen: %v] Accessory clothing image is missing, please select a valid top clothing", payload.TryOnID))
 		return nil
 	}
-	fmt.Println("Fetching clothing files...", tryOnGeneration.TopClothing, *tryOnGeneration.TopClothingID, "hello there")
+	fmt.Println("Fetching clothing files...", tryOnGeneration.TopClothingID, tryOnGeneration.BottomClothingID, tryOnGeneration.ShoesClothingID)
 	time.Sleep(2 * time.Second) // wait for r2 to be ready
 	if tryOnGeneration.TopClothing != nil {
 		fmt.Printf("[Try on Gen: %v] Adding top clothing ID: %v\n", payload.TryOnID, tryOnGeneration.TopClothing.ID)
@@ -623,10 +623,10 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 	}(personAvatarPath)
 	// Build characteristics description from user data (same as ProcessAvatarTask)
 	var characteristicsDescription string
-	if user.BodyType != nil && user.ShoulderType != nil && user.BodyToLegRatio != nil && 
-		user.HandType != nil && user.UpperLimbType != nil && user.Weight != nil && 
+	if user.BodyType != nil && user.ShoulderType != nil && user.BodyToLegRatio != nil &&
+		user.HandType != nil && user.UpperLimbType != nil && user.Weight != nil &&
 		user.Height != nil && user.WaistSize != nil {
-		
+
 		// Create PersonCharacteristics struct from user data
 		characteristics := services.PersonCharacteristics{
 			BodyType:       services.BodyType(*user.BodyType),
