@@ -183,7 +183,9 @@ func (controller *ClothesController) CreateClothing(c echo.Context) error {
 		sentry.CaptureException(err)
 		return err
 	}
+	clothing.Status = "temporary"
 	if req.AddToCloset != nil && *req.AddToCloset {
+		clothing.Status = "in_closet"
 		clothing.ProcessingStatus = "pending"
 		if err := db.Save(&clothing).Error; err != nil {
 			sentry.CaptureException(err)
