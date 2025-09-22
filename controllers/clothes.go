@@ -445,7 +445,7 @@ func (controller *ClothesController) ListClothes(c echo.Context) error {
 
 	// Get all clothes for the user
 	var clothes []models.Clothing
-	if err := db.Where("owner_id = ? AND company_id = ?", user.ID, user.Memberships[0].CompanyID).Find(&clothes).Error; err != nil {
+	if err := db.Order("created_at desc").Where("owner_id = ? AND company_id = ?", user.ID, user.Memberships[0].CompanyID).Find(&clothes).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch clothes"})
 	}
 	// --- 3. Delegate all complex processing to our new helper function ---
