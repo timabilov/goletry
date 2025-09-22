@@ -159,8 +159,8 @@ func (controller *ClothesController) CreateClothing(c echo.Context) error {
 		ClothingType:     req.ClothingType,
 		OwnerID:          user.ID,
 		ProcessingStatus: "idle",
-		// Status:       req.Status,
-		CompanyID: user.Memberships[0].CompanyID,
+		Status:           "temporary",
+		CompanyID:        user.Memberships[0].CompanyID,
 		// Company:    user.Memberships[0].Company,
 	}
 	var bucketName = services.GetEnv("R2_BUCKET_NAME", "")
@@ -183,7 +183,6 @@ func (controller *ClothesController) CreateClothing(c echo.Context) error {
 		sentry.CaptureException(err)
 		return err
 	}
-	clothing.Status = "temporary"
 	if req.AddToCloset != nil && *req.AddToCloset {
 		clothing.Status = "in_closet"
 		clothing.ProcessingStatus = "pending"
