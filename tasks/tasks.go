@@ -651,7 +651,7 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 	fmt.Println("Images length:", len(clothingLLMResponse.Images))
 	if err != nil {
 		sentry.CaptureException(fmt.Errorf("[Try on Gen: %v] Error on generating study material %s: %v", payload.TryOnID, "", err))
-		saveTryOnGenerationFail(db, tryOnGeneration, "Failed to generate study material, please try again", true)
+		saveTryOnGenerationFail(db, tryOnGeneration, "Failed to generate try on, please try again", true)
 		return err
 	}
 	clothingLLMResponseText := clothingLLMResponse.Response
@@ -659,11 +659,13 @@ func HandleTryOnGenerationTask(ctx context.Context, t *asynq.Task, db *gorm.DB, 
 
 	if strings.Contains(clothingLLMResponseText, "NO_PERSON") {
 		saveTryOnGenerationFail(db, tryOnGeneration, "No person detected in the image, please try to upload new avatar", false)
+		fmt.Printf("[Try on Gen: %v] No person detected in the image on generating tryon %s: %v", payload.TryOnID, "", err)
 		sentry.CaptureException(fmt.Errorf("[Avatar: %v] No person detected in the image on generating tryon %s: %v", payload.UserID, "", err))
 		return fmt.Errorf("[Avatar: %v] No person detected in the image on generating tryon %s: %v", payload.UserID, "", err)
 	}
 	if len(clothingLLMResponse.Images) == 0 {
 		sentry.CaptureException(fmt.Errorf("[Try on Gen: %v] Response image is nil or empty on generating try on %s: %v", payload.TryOnID, "", err))
+		fmt.Printf("[Try on Gen: %v] Response image is nil or empty on generating try on %s: %v", payload.TryOnID, "", err)
 		saveTryOnGenerationFail(db, tryOnGeneration, "Failed to generate generating preview, please try again", true)
 		return fmt.Errorf("[Try on Gen: %v] Response image is nil or empty on generating try on %s: %v", payload.TryOnID, "", err)
 	}

@@ -279,7 +279,9 @@ func GetFirstCandidateTextWithThoughts(result *genai.GenerateContentResponse) (*
 	for _, c := range result.Candidates {
 		// fmt.Println("Candidate:", i, c.Content.Parts[0].Text, c.Content.Parts[0].Thought)
 		fmt.Println("Finish reason: ", c.FinishReason, " Finish message: ", c.FinishMessage)
-
+		if c.FinishReason == genai.FinishReasonImageSafety {
+			return nil, fmt.Errorf("content violation: Couldn't analyze the image, because it was flagged by our safety system.")
+		}
 		if len(c.SafetyRatings) > 0 {
 			fmt.Println("[Safety] Safety ratings present:", len(c.SafetyRatings))
 			for _, rating := range c.SafetyRatings {
@@ -415,7 +417,7 @@ func (GoogleLLMProcessor) ProcessAvatarTask(personAvatarPath string, modelName L
 	if err != nil {
 		fmt.Println("Error getting first candidate text: ", err)
 		fmt.Println(result.Candidates)
-		return nil, fmt.Errorf("error getting first candidate text: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return &LLMResponse{
@@ -527,7 +529,7 @@ func (GoogleLLMProcessor) ProcessAvatarTaskWithCharacteristics(personAvatarPath 
 	if err != nil {
 		fmt.Println("Error getting first candidate text: ", err)
 		fmt.Println(result.Candidates)
-		return nil, fmt.Errorf("error getting first candidate text: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return &LLMResponse{
@@ -646,7 +648,7 @@ func (GoogleLLMProcessor) GenerateTryOn(personAvatarPath string, filePaths []str
 		fmt.Println("Error getting first candidate text: ", err)
 
 		fmt.Println(result.Candidates)
-		return nil, fmt.Errorf("error getting first candidate text: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 	// fmt.Pri
 	return &LLMResponse{
