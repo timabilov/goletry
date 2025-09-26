@@ -705,29 +705,30 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 		user := c.Get("currentUser").(models.UserAccount)
 		db := c.Get("__db").(*gorm.DB)
 		var companyDb models.Company
-		r := db.Limit(1).Find(&companyDb, "id = ?", user.Memberships[0].CompanyID)
-		if r.RowsAffected == 0 {
-			return c.JSON(http.StatusInternalServerError, echo.Map{
-				"message": "Something went wrong",
-			})
-		}
-
 		var companies = []models.CompanyInfoRoleV2Out{}
+		if len(user.Memberships) > 0 {
+			r := db.Limit(1).Find(&companyDb, "id = ?", user.Memberships[0].CompanyID)
+			if r.RowsAffected == 0 {
+				return c.JSON(http.StatusInternalServerError, echo.Map{
+					"message": "Something went wrong",
+				})
+			}
 
-		for _, memberships := range user.Memberships {
-			companies = append(companies, models.CompanyInfoRoleV2Out{
-				Role: string(memberships.Role),
-				CompanyInfoOut: models.CompanyInfoOut{
+			for _, memberships := range user.Memberships {
+				companies = append(companies, models.CompanyInfoRoleV2Out{
+					Role: string(memberships.Role),
+					CompanyInfoOut: models.CompanyInfoOut{
 
-					Name:             memberships.Company.Name,
-					Id:               memberships.CompanyID,
-					OwnerId:          memberships.Company.OwnerID,
-					Active:           memberships.Active,
-					Subscription:     memberships.Company.Subscription,
-					TrialStartedDate: memberships.Company.TrialStartedDate,
-					TrialDays:        memberships.Company.TrialDays,
-				},
-			})
+						Name:             memberships.Company.Name,
+						Id:               memberships.CompanyID,
+						OwnerId:          memberships.Company.OwnerID,
+						Active:           memberships.Active,
+						Subscription:     memberships.Company.Subscription,
+						TrialStartedDate: memberships.Company.TrialStartedDate,
+						TrialDays:        memberships.Company.TrialDays,
+					},
+				})
+			}
 		}
 		fullbodyAvatarUrl := user.UserFullBodyImageURL
 		if user.UserFullBodyImageURL != nil && *user.UserFullBodyImageURL != "" {
