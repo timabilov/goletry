@@ -766,7 +766,7 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			Height:         user.Height,
 			WaistSize:      user.WaistSize,
 		})
-	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
+	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserOnlyMiddleware)
 
 	g.POST("/settings", func(c echo.Context) error {
 		user := c.Get("currentUser").(models.UserAccount)
@@ -1019,5 +1019,5 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "Body characteristics updated successfully"})
-	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserMiddleware)
+	}, echojwt.JWT([]byte(os.Getenv("JWT_SECRET"))), UserOnlyMiddleware)
 }

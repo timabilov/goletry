@@ -65,6 +65,29 @@ func UserMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+func UserOnlyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		db := c.Get("__db").(*gorm.DB)
+		userRaw := c.Get("user")
+		if userRaw == nil {
+			return echo.ErrUnauthorized
+		}
+		user := userRaw.(*jwt.Token)
+		claims := user.Claims.(jwt.MapClaims)
+		userId := claims["sub"]
+		if userId == nil || userId == "" {
+			log.Println("Error while getting the token information!")
+			return echo.ErrUnauthorized
+		}
+
+		var currentUser models.UserAccount
+		db.Preload("Memberships.Company").First(&currentUser, userId)
+		c.Set("currentUser", currentUser)
+
+		fmt.Printf("Fetched only user access %s memberships: %v \n ", currentUser.Name, len(currentUser.Memberships))
+		return next(c)
+	}
+}
 func UserCompanyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		db := c.Get("__db").(*gorm.DB)
