@@ -6,76 +6,89 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 )
 
-// WhitenBackgroundWithProtectedCenter whitens the background of an image while protecting a central rectangular area.
-//   - imageBytes: The input image as a byte slice.
-//   - threshold: Any pixel (R,G,B) outside the protected area with values >= threshold will be turned white.
-//   - centralProtectionRatio: A value from 0.0 to 1.0. A ratio of 0.7 means the central 70% of the
-//     image's width and height will be protected from changes.
-func WhitenBackgroundWithProtectedCenter(imageBytes []byte, threshold uint8, centralProtectionRatio float64) ([]byte, error) {
+// WhitenBackgroundFeathered applies a soft threshold to whiten the background.
+// It uses a transition range to smoothly blend pixels towards white, avoiding hard edges.
+// It also protects a central area of the image.
+// - imageBytes: The input image as a byte slice.
+// - lowerThreshold: The brightness value (0-255) at which the whitening effect begins.
+// - upperThreshold: The brightness value (0-255) at which pixels become pure white.
+// - centralProtectionRatio: The central area (0.0-1.0) to protect from any changes.
+func WhitenBackgroundFeathered(imageBytes []byte, lowerThreshold, upperThreshold uint8, centralProtectionRatio float64) ([]byte, error) {
+	if lowerThreshold >= upperThreshold {
+		return nil, fmt.Errorf("lowerThreshold must be less than upperThreshold")
+	}
 	if centralProtectionRatio < 0.0 || centralProtectionRatio > 1.0 {
 		return nil, fmt.Errorf("centralProtectionRatio must be between 0.0 and 1.0")
 	}
 
-	// 1. Decode the input bytes into an image.Image
 	img, _, err := image.Decode(bytes.NewReader(imageBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
 
-	// 2. Get the image bounds and create a new image
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
 	newImg := image.NewRGBA(bounds)
 
-	// 3. Calculate the coordinates of the central protected rectangle
+	// Calculate the protected rectangle
 	protectedWidth := int(float64(width) * centralProtectionRatio)
 	protectedHeight := int(float64(height) * centralProtectionRatio)
-
-	// Top-left corner (x0, y0)
 	x0 := (width - protectedWidth) / 2
 	y0 := (height - protectedHeight) / 2
-	// Bottom-right corner (x1, y1)
 	x1 := x0 + protectedWidth
 	y1 := y0 + protectedHeight
 
-	fmt.Printf("Image Dimensions: %dx%d\n", width, height)
-	fmt.Printf("Protected Area (%.f%%): from (%d, %d) to (%d, %d)\n", centralProtectionRatio*100, x0, y0, x1, y1)
+	// Pre-calculate the transition range to avoid division in the loop
+	transitionRange := float64(upperThreshold - lowerThreshold)
 
-	// 4. Iterate over each pixel
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			originalColor := img.At(x, y)
 
-			// THE CORE LOGIC: Check if the pixel is INSIDE the protected rectangle
+			// If inside the protected area, just copy the pixel
 			if x >= x0 && x < x1 && y >= y0 && y < y1 {
-				// We are inside the safe zone, so just copy the original pixel.
 				newImg.Set(x, y, originalColor)
-			} else {
-				// We are OUTSIDE the safe zone, so apply the whitening logic.
-				r, g, b, a := originalColor.RGBA()
-				r8 := uint8(r >> 8)
-				g8 := uint8(g >> 8)
-				b8 := uint8(b >> 8)
-				a8 := uint8(a >> 8)
+				continue
+			}
 
-				if r8 >= threshold && g8 >= threshold && b8 >= threshold {
-					// Pixel is light enough, make it pure white.
-					newImg.Set(x, y, color.RGBA{R: 255, G: 255, B: 255, A: a8})
-				} else {
-					// Pixel is too dark to be background, keep its original color.
-					newImg.Set(x, y, originalColor)
-				}
+			// Outside the protected area, apply the feathered whitening logic
+			r, g, b, a := originalColor.RGBA()
+			r8 := uint8(r >> 8)
+			g8 := uint8(g >> 8)
+			b8 := uint8(b >> 8)
+			a8 := uint8(a >> 8)
+
+			// Use luminance for a more accurate measure of brightness
+			luminance := 0.299*float64(r8) + 0.587*float64(g8) + 0.114*float64(b8)
+
+			if luminance <= float64(lowerThreshold) {
+				// Pixel is too dark, leave it untouched
+				newImg.Set(x, y, originalColor)
+			} else if luminance >= float64(upperThreshold) {
+				// Pixel is bright enough, make it pure white
+				newImg.Set(x, y, color.RGBA{R: 255, G: 255, B: 255, A: a8})
+			} else {
+				// THE CORE LOGIC: We are in the transition zone.
+				// Calculate how far into the transition range this pixel is (0.0 to 1.0)
+				blendFactor := (luminance - float64(lowerThreshold)) / transitionRange
+
+				// Linearly interpolate each channel towards white (255)
+				// new_color = original_color * (1 - factor) + white * factor
+				newR := uint8(math.Round(float64(r8)*(1.0-blendFactor) + 255.0*blendFactor))
+				newG := uint8(math.Round(float64(g8)*(1.0-blendFactor) + 255.0*blendFactor))
+				newB := uint8(math.Round(float64(b8)*(1.0-blendFactor) + 255.0*blendFactor))
+
+				newImg.Set(x, y, color.RGBA{R: newR, G: newG, B: newB, A: a8})
 			}
 		}
 	}
 
-	// 5. Encode the new image into a byte buffer as a PNG
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, newImg); err != nil {
 		return nil, fmt.Errorf("failed to encode image to png: %w", err)
 	}
-
 	return buf.Bytes(), nil
 }

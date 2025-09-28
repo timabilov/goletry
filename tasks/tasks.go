@@ -274,7 +274,11 @@ func ProcessAvatarTask(
 		fmt.Printf("[Avatar: %v] Warning: More than 1 image returned, using the first one\n", payload.UserID)
 	}
 	generatedImageBytes := clothingLLMResponse.Images[0]
-	whitenedAvatarBytes, err := services.WhitenBackgroundWithProtectedCenter(generatedImageBytes, 245, 0.5)
+	// Start whitening pixels that are brighter than 230
+	var lowerThreshold uint8 = 230
+	// Any pixel brighter than 248 becomes pure white
+	var upperThreshold uint8 = 248
+	whitenedAvatarBytes, err := services.WhitenBackgroundFeathered(generatedImageBytes, lowerThreshold, upperThreshold, 0.5)
 	if err != nil {
 		fmt.Printf("[Avatar: %v] Error on whitening background: %v\n", payload.UserID, err)
 		saveUserAvatarProcessingFail(db, user, "Failed to process the background, please try again", true)
