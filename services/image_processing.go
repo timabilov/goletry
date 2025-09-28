@@ -1,16 +1,11 @@
-package main
+package services
 
 import (
 	"bytes"
 	"fmt"
 	"image"
 	"image/color"
-	_ "image/jpeg" // register JPEG decoder
-	_ "image/png"  // register PNG decoder
-	"log"
-	"os"
-
-	"image/png" // we will encode the output as PNG
+	"image/png"
 )
 
 // WhitenBackgroundWithProtectedCenter whitens the background of an image while protecting a central rectangular area.
@@ -83,43 +78,4 @@ func WhitenBackgroundWithProtectedCenter(imageBytes []byte, threshold uint8, cen
 	}
 
 	return buf.Bytes(), nil
-}
-
-// --- Example Usage ---
-func main() {
-	// Create a dummy image for the example
-	// In a real scenario, you would read this from a file or network request.
-	// e.g., imageBytes, err := ioutil.ReadFile("my_image_with_gray_bg.jpg")
-	// err := createDummyImage("input.png")
-	// if err != nil {
-	// 	log.Fatalf("Failed to create dummy image: %v", err)
-	// }
-
-	fmt.Println("Readin input.png")
-
-	// Read the image file into bytes
-	imageBytes, err := os.ReadFile("input.png")
-	if err != nil {
-		log.Fatalf("Failed to read input image: %v", err)
-	}
-
-	var threshold uint8 = 245
-	var protectionRatio float64 = 0.6
-	// Call our function
-	whitenedBytes, err := WhitenBackgroundWithProtectedCenter(imageBytes, threshold, protectionRatio)
-	if err != nil {
-		log.Fatalf("Failed to whiten background: %v", err)
-	}
-
-	// Write the result to a new file to see the difference
-	err = os.WriteFile("output.png", whitenedBytes, 0644)
-	if err != nil {
-		log.Fatalf("Failed to write output image: %v", err)
-	}
-
-	fmt.Println("Successfully processed image and saved to 'output.png'.")
-
-	// Clean up dummy files
-	// os.Remove("input.png")
-	// os.Remove("output.png")
 }
