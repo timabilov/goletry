@@ -211,17 +211,24 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 			user.Status = "FINISHED_AUTH"
 			user.UTMSource = signUp.UTMSource
 			// var company *models.Company
-			company := &models.Company{
-				Name:         signUp.Company,
-				OwnerID:      user.ID,
-				Subscription: models.Free,
-				// TrialStartedDate:
-				TrialDays: UIntPointer(14),
-				Currency:  "₼",
-				Language:  "az",
-				Active:    true,
+			company := &models.Company{}
+			result := db.Where(&models.Company{OwnerID: user.ID}).Attrs(
+				&models.Company{
+					Name:         signUp.Company,
+					OwnerID:      user.ID,
+					Subscription: models.Free,
+					// TrialStartedDate:
+					TrialDays: UIntPointer(14),
+					Currency:  "₼",
+					Language:  "az",
+					Active:    true,
+				},
+			).FirstOrCreate(&company)
+			if result.Error != nil {
+				fmt.Println("Error creating company for user:", result.Error)
+				sentry.CaptureException(result.Error)
+				return echo.ErrInternalServerError
 			}
-			db.Create(&company)
 			var user_membership = &models.UserCompanyRole{
 				CompanyID:     company.ID,
 				UserAccountID: user.ID,
@@ -541,17 +548,24 @@ func (m *AuthController) ProfileRoutes(g *echo.Group) {
 		user.Status = "FINISHED_AUTH"
 		user.UTMSource = req.UTMSource
 		// var company *models.Company
-		company := &models.Company{
-			Name:         req.Company,
-			OwnerID:      user.ID,
-			Subscription: models.Free,
-			// TrialStartedDate:
-			TrialDays: UIntPointer(14),
-			Currency:  "₼",
-			Language:  "az",
-			Active:    true,
+		company := &models.Company{}
+		result := db.Where(&models.Company{OwnerID: user.ID}).Attrs(
+			&models.Company{
+				Name:         req.Company,
+				OwnerID:      user.ID,
+				Subscription: models.Free,
+				// TrialStartedDate:
+				TrialDays: UIntPointer(14),
+				Currency:  "₼",
+				Language:  "az",
+				Active:    true,
+			},
+		).FirstOrCreate(&company)
+		if result.Error != nil {
+			fmt.Println("Error creating company for user:", result.Error)
+			sentry.CaptureException(result.Error)
+			return echo.ErrInternalServerError
 		}
-		db.Create(&company)
 		var user_membership = &models.UserCompanyRole{
 			CompanyID:     company.ID,
 			UserAccountID: user.ID,
