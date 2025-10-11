@@ -890,6 +890,7 @@ func IdentifyClothingTask(
 	clothing.Material = identifiedData.Material
 	clothing.Color = identifiedData.Color
 	clothing.Style = identifiedData.Style
+	clothing.ClothingType = identifiedData.ClothingType
 	clothing.IdentifyStatus = "completed"
 	clothing.Status = "in_closet"
 	

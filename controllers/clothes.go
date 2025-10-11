@@ -114,6 +114,7 @@ func (controller *ClothesController) ClothingRoutes(g *echo.Group) {
 	g.POST("/tryon", controller.GenerateTryOn)
 	g.GET("/tryon/:id", controller.RetrieveTryOnGeneration)
 	g.GET("/list", controller.ListClothes)
+	g.GET("/:id", controller.GetClothingByID)
 }
 
 func (controller *ClothesController) CreateClothing(c echo.Context) error {
@@ -604,6 +605,70 @@ func (controller *ClothesController) ListClothes(c echo.Context) error {
 		case "accessory":
 			response.Accessories = append(response.Accessories, resp)
 		}
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+func (controller *ClothesController) GetClothingByID(c echo.Context) error {
+	// Get user and db from context
+	user, ok := c.Get("currentUser").(models.UserAccount)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+	}
+	db, ok := c.Get("__db").(*gorm.DB)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database connection error"})
+	}
+
+	// Get clothing by ID
+	var clothing models.Clothing
+	if err := db.Where("owner_id = ? AND company_id = ?", user.ID, user.Memberships[0].CompanyID).First(&clothing, c.Param("id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Clothing not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch clothing"})
+	}
+
+	// Get presigned URL for image
+	var imageUrl string
+	if clothing.ImageURL != nil && *clothing.ImageURL != "" {
+		bucketName := services.GetEnv("R2_BUCKET_NAME", "")
+		url, err := controller.URLCache.GetReadURL(c.Request().Context(), *clothing.ImageURL)
+		if err == nil {
+			imageUrl = url
+		} else {
+			// Fallback to direct AWS service call
+			fallbackUrl, fallbackErr := controller.AWSService.GetPresignedR2FileReadURL(c.Request().Context(), bucketName, *clothing.ImageURL)
+			if fallbackErr == nil {
+				imageUrl = fallbackUrl
+			}
+		}
+	}
+
+	// Prepare response (excluding retry times)
+	response := ClothingDetailResponse{
+		ClothingResponse: ClothingResponse{
+			ID:                  clothing.ID,
+			Name:                clothing.Name,
+			Description:         clothing.Description,
+			ClothingType:        clothing.ClothingType,
+			Status:              clothing.Status,
+			ProcessingStatus:    clothing.ProcessingStatus,
+			ProcessErrorMessage: clothing.ProcessErrorMessage,
+			Uri:                 &imageUrl,
+			CreatedAt:           clothing.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:           clothing.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		},
+		Brand:                clothing.Brand,
+		Size:                 clothing.Size,
+		PriceUSD:             clothing.PriceUSD,
+		Condition:            clothing.Condition,
+		Material:             clothing.Material,
+		Color:                clothing.Color,
+		Style:                clothing.Style,
+		IdentifyStatus:       clothing.IdentifyStatus,
+		IdentifyErrorMessage: clothing.IdentifyErrorMessage,
 	}
 
 	return c.JSON(http.StatusOK, response)

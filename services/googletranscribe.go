@@ -198,15 +198,16 @@ type NoteTranscribeResponse struct {
 }
 
 type ClothingIdentificationResponse struct {
-	Name        string   `json:"name"`
-	Description *string  `json:"description"`
-	Brand       *string  `json:"brand"`
-	Size        *string  `json:"size"`
-	PriceUSD    *float64 `json:"price_usd"`
-	Condition   *string  `json:"condition"`
-	Material    *string  `json:"material"`
-	Color       *string  `json:"color"`
-	Style       *string  `json:"style"`
+	Name         string   `json:"name"`
+	Description  *string  `json:"description"`
+	Brand        *string  `json:"brand"`
+	Size         *string  `json:"size"`
+	PriceUSD     *float64 `json:"price_usd"`
+	Condition    *string  `json:"condition"`
+	Material     *string  `json:"material"`
+	Color        *string  `json:"color"`
+	Style        *string  `json:"style"`
+	ClothingType string   `json:"clothing_type"`
 }
 
 type GoogleLLMProcessor struct{}
@@ -829,6 +830,7 @@ Fields to identify:
 7. material: Primary material (cotton, polyester, denim, wool, etc.)
 8. color: Primary color or color combination
 9. style: Style category (casual, formal, sporty, vintage, bohemian, chic, business, streetwear)
+10. clothing_type: Clothing category (top, bottom, shoes, accessory)
 
 Provide realistic and accurate assessments based on what is visible in the image.`,
 		},
@@ -875,8 +877,12 @@ Provide realistic and accurate assessments based on what is visible in the image
 					Type: "string",
 					Enum: []string{"casual", "formal", "sporty", "vintage", "bohemian", "chic", "business", "streetwear"},
 				},
+				"clothing_type": {
+					Type: "string",
+					Enum: []string{"top", "bottom", "shoes", "accessory"},
+				},
 			},
-			Required: []string{"name", "condition", "material", "color", "style"},
+			Required: []string{"name", "condition", "material", "color", "style", "clothing_type"},
 		},
 	})
 
