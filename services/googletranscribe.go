@@ -167,6 +167,7 @@ type LLMProcessor interface {
 	ProcessAvatarTaskWithCharacteristics(personAvatarPath string, characteristics string, modelName LLMModelName) (*LLMResponse, error)
 	GenerateTryOn(personAvatarPath string, filePaths []string, characteristics string, modelName LLMModelName) (*LLMResponse, error)
 	AnalyzePersonCharacteristics(imagePath string, modelName LLMModelName) (*PersonCharacteristics, error)
+	IdentifyClothing(clothingImagePath string, modelName LLMModelName) (*LLMResponse, error)
 }
 
 type QuizObject struct {
@@ -194,6 +195,18 @@ type NoteTranscribeResponse struct {
 	MD_Summary    string `json:"md_summary"`
 	Transcription string `json:"transcription"`
 	Language      string `json:"language"`
+}
+
+type ClothingIdentificationResponse struct {
+	Name        string   `json:"name"`
+	Description *string  `json:"description"`
+	Brand       *string  `json:"brand"`
+	Size        *string  `json:"size"`
+	PriceUSD    *float64 `json:"price_usd"`
+	Condition   *string  `json:"condition"`
+	Material    *string  `json:"material"`
+	Color       *string  `json:"color"`
+	Style       *string  `json:"style"`
 }
 
 type GoogleLLMProcessor struct{}
@@ -773,6 +786,127 @@ Categories:
 	}
 
 	return &characteristics, nil
+}
+
+func (GoogleLLMProcessor) IdentifyClothing(clothingImagePath string, modelName LLMModelName) (*LLMResponse, error) {
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  os.Getenv("GOOGLE_API_KEY"),
+		Backend: genai.BackendGeminiAPI,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	genFile, err := tryUploadGoogleStorage(ctx, client, clothingImagePath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error uploading clothing image for identification %s: %v", clothingImagePath, err)
+	}
+
+	parts := []*genai.Part{
+		{
+			FileData: &genai.FileData{
+				FileURI:  genFile.URI,
+				MIMEType: genFile.MIMEType,
+			},
+		},
+		{
+			Text: `As a fashion clothing, accessory expert, Analyze the clothing item in the provided image and identify its attributes.
+
+Instructions:
+- Examine the clothing item carefully and provide detailed information
+- For optional fields, provide null if the information cannot be determined
+- Be realistic with price estimation based on visible brand, quality, and style
+- Use descriptive but concise terms
+
+Fields to identify:
+1. name: A descriptive name for the clothing item (e.g., "Blue Denim Jacket", "White Cotton T-Shirt")
+2. description: A brief description of the item's features, fit, or notable characteristics
+3. brand: Carefully Identify the brand otherwise null
+4. size: The size if visible on labels, otherwise null
+5. price_usd: Estimated price in USD based on visible quality and style
+6. condition: Condition assessment (new, like new, good, fair, poor)
+7. material: Primary material (cotton, polyester, denim, wool, etc.)
+8. color: Primary color or color combination
+9. style: Style category (casual, formal, sporty, vintage, bohemian, chic, business, streetwear)
+
+Provide realistic and accurate assessments based on what is visible in the image.`,
+		},
+	}
+
+	result, err := client.Models.GenerateContent(ctx, modelName.String(), []*genai.Content{{Parts: parts}}, &genai.GenerateContentConfig{
+		ResponseMIMEType: "application/json",
+		MaxOutputTokens:  4000,
+		Temperature:      floatPointer(0.3),
+		SystemInstruction: &genai.Content{
+			Parts: []*genai.Part{
+				{Text: `You are an expert fashion and clothing analysis AI. Analyze the clothing item in the image and return structured identification data in JSON format. Be accurate and realistic in your assessments.`},
+			},
+		},
+		ResponseSchema: &genai.Schema{
+			Type: "object",
+			Properties: map[string]*genai.Schema{
+				"name": {
+					Type: "string",
+				},
+				"description": {
+					Type: "string",
+				},
+				"brand": {
+					Type: "string",
+				},
+				"size": {
+					Type: "string",
+				},
+				"price_usd": {
+					Type: "number",
+				},
+				"condition": {
+					Type: "string",
+					Enum: []string{"new", "like new", "good", "fair", "poor"},
+				},
+				"material": {
+					Type: "string",
+				},
+				"color": {
+					Type: "string",
+				},
+				"style": {
+					Type: "string",
+					Enum: []string{"casual", "formal", "sporty", "vintage", "bohemian", "chic", "business", "streetwear"},
+				},
+			},
+			Required: []string{"name", "condition", "material", "color", "style"},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error identifying clothing: %v", err)
+	}
+
+	if result.PromptFeedback != nil {
+		return nil, fmt.Errorf("content violation during clothing identification: %s", result.PromptFeedback.BlockReasonMessage)
+	}
+
+	inputTokenCount := result.UsageMetadata.PromptTokenCount
+	thoughtsTokenCount := result.UsageMetadata.ThoughtsTokenCount
+	outputTokenCount := result.UsageMetadata.CandidatesTokenCount
+	totalTokenCount := result.UsageMetadata.TotalTokenCount
+
+	llmResponseText, err := GetFirstCandidateTextWithThoughts(result)
+	if err != nil {
+		return nil, fmt.Errorf("error getting clothing identification response: %v", err)
+	}
+
+	return &LLMResponse{
+		Response:           llmResponseText.Text,
+		Thoughts:           llmResponseText.Thoughts,
+		InputTokenCount:    inputTokenCount,
+		ThoughtsTokenCount: thoughtsTokenCount,
+		OutputTokenCount:   outputTokenCount,
+		TotalTokenCount:    totalTokenCount,
+		IsTest:             false,
+	}, nil
 }
 
 func (GoogleLLMProcessor) ProcessClothing(filePath string, modelName LLMModelName) (*LLMResponse, error) {

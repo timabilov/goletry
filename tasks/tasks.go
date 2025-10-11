@@ -32,6 +32,10 @@ type UserAvatarGeneratePayload struct {
 	UserID uint `json:"user_id"`
 }
 
+type IdentifyClothingPayload struct {
+	ClothingId uint `json:"clothing_id"`
+}
+
 // Client initializes an asynq client for enqueuing tasks
 func NewClient() (*asynq.Client, error) {
 	return asynq.NewClient(asynq.RedisClientOpt{Addr: "your-redis-connection-string"}), nil
@@ -64,6 +68,14 @@ func NewClothingProcessingTask(clothingId uint) (*asynq.Task, error) {
 	}
 	return asynq.NewTask("generate:process_clothing", payload), nil
 
+}
+
+func NewIdentifyClothingTask(clothingId uint) (*asynq.Task, error) {
+	payload, err := json.Marshal(IdentifyClothingPayload{ClothingId: clothingId})
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask("generate:identify_clothing", payload), nil
 }
 
 func fetchR2File(awsService services.AWSServiceProvider, r2FilePath *string, entityLog string) ([]byte, string, error) {
@@ -780,6 +792,138 @@ func saveUserAvatarProcessingFail(db *gorm.DB, user models.UserAccount, msg stri
 	}
 	return nil
 }
+func IdentifyClothingTask(
+	ctx context.Context, t *asynq.Task, db *gorm.DB, transcriber services.LLMProcessor,
+	awsService services.AWSServiceProvider, fbApp *firebase.App) error {
+	google_key := os.Getenv("GOOGLE_API_KEY")
+	if google_key == "" {
+		sentry.CaptureException(fmt.Errorf("[QUEUE] %s Google API key is not set", string(t.Payload())))
+		return fmt.Errorf("[QUEUE] %s Google API key is not set", string(t.Payload()))
+	}
+	var payload IdentifyClothingPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return err
+	}
+	fmt.Printf("[Identify Clothing: %v] Start Processing\n", payload.ClothingId)
+	var clothing models.Clothing
+	res := db.Joins("Company").First(&clothing, payload.ClothingId)
+	if res.Error != nil {
+		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on retrieving clothing for identification %v", payload.ClothingId))
+		return res.Error
+	}
+	
+	time.Sleep(2 * time.Second) // wait for r2 to be ready
+	fileBytes, fileName, err := fetchR2File(awsService, clothing.ImageURL, "Clothing ID "+fmt.Sprint(payload.ClothingId))
+	if err != nil {
+		saveClothingIdentifyFail(db, clothing, "Failed to read clothing image, please try to create new clothing", false)
+		sentry.CaptureException(fmt.Errorf("[Identify Clothing: %v] File path exists, but error on getting file %s: %v", payload.ClothingId, *clothing.ImageURL, err))
+		return err
+	}
+	fmt.Printf("[Identify Clothing: %v] Downloaded file size: %d bytes\n", payload.ClothingId, len(fileBytes))
+	imgPath, err := services.CreateTempFile(fileBytes, fileName)
+	defer func(path string) {
+		if err := os.Remove(path); err != nil {
+			fmt.Printf("[Identify Clothing: %v] Error removing temporary file %s: %v\n", payload.ClothingId, path, err)
+		} else {
+			fmt.Printf("[Identify Clothing: %v] Successfully removed temporary file %s\n", payload.ClothingId, path)
+		}
+	}(imgPath)
+
+	if err != nil {
+		saveClothingIdentifyFail(db, clothing, "Failed to read your clothing files, please try to create new clothing", true)
+		sentry.CaptureException(fmt.Errorf("[Identify Clothing: %v] Error extracting documents from zip %s: %v", payload.ClothingId, *clothing.ImageURL, err))
+		return err
+	}
+
+	fmt.Printf("[Identify Clothing: %v] Identifying clothing attributes..\n", payload.ClothingId)
+	model := services.Flash25
+	modelString := model.String()
+	if clothing.Company.EnforcedLLMModel != nil {
+		model = services.LLMModelName(*clothing.Company.EnforcedLLMModel)
+		modelString = model.String()
+		fmt.Printf("[Identify Clothing: %v] [ENFORCE MODEL] Using enforced model: %s\n", payload.ClothingId, model.String())
+	}
+
+	fmt.Printf("[Identify Clothing: %v] Model: %s\n", payload.ClothingId, modelString)
+	fmt.Printf("[Identify Clothing: %v] Extracted clothing image path %v:", payload.ClothingId, imgPath)
+
+	clothingLLMResponse, err := transcriber.IdentifyClothing(imgPath, services.Pro25)
+	if err != nil {
+		fmt.Printf("[Identify Clothing: %v] Error on identifying clothing %v: %v\n", payload.ClothingId, imgPath, err)
+		if strings.Contains(err.Error(), "content violation") {
+			saveClothingIdentifyFail(db, clothing, "Sorry, it seems that this clothing contains violated content that we cannot process.", false)
+			sentry.CaptureException(fmt.Errorf("[Identify Clothing: %v] Content violation on identifying clothing %s: %v", payload.ClothingId, *clothing.ImageURL, err))
+			return nil
+		}
+		saveClothingIdentifyFail(db, clothing, "Failed to identify your clothing, please try to create new clothing", true)
+		sentry.CaptureException(fmt.Errorf("[Identify Clothing: %v] Error on identifying clothing %s: %v", payload.ClothingId, *clothing.ImageURL, err))
+		return err
+	}
+	if clothingLLMResponse == nil {
+		fmt.Printf("[Identify Clothing: %v] Response is nil but no error provided on identifying %v: %v\n", payload.ClothingId, imgPath, err)
+		saveClothingIdentifyFail(db, clothing, "Failed to identify your clothing, please try to create new clothing", true)
+		sentry.CaptureException(fmt.Errorf("[Identify Clothing: %v] Response is nil but no error provided on identifying clothing %v: %v", payload.ClothingId, imgPath, err))
+		return fmt.Errorf("[Identify Clothing: %v] Response is nil but no error provided on identifying clothing %s: %v", payload.ClothingId, *clothing.ImageURL, err)
+	}
+	clothingLLMResponseText := clothingLLMResponse.Response
+
+	cleanResponse := cleanAIResponseText(clothingLLMResponseText)
+	fmt.Println(cleanResponse)
+
+	// Parse the JSON response from LLM
+	var identifiedData services.ClothingIdentificationResponse
+	if err := json.Unmarshal([]byte(cleanResponse), &identifiedData); err != nil {
+		fmt.Println(err)
+		fmt.Printf("[Identify Clothing: %v] Error on parsing Gemini %s AI json %s", payload.ClothingId, model.String(), clothingLLMResponseText)
+		saveClothingIdentifyFail(db, clothing, "Failed to parse clothing identification response, please try again later", true)
+		sentry.CaptureException(fmt.Errorf("[Identify Clothing: %v] Error on parsing Gemini %s AI json %s", payload.ClothingId, services.Pro25, clothingLLMResponseText))
+		return err
+	}
+
+	// Update clothing with identified attributes
+	clothing.Name = identifiedData.Name
+	clothing.Description = identifiedData.Description
+	clothing.Brand = identifiedData.Brand
+	clothing.Size = identifiedData.Size
+	clothing.PriceUSD = identifiedData.PriceUSD
+	clothing.Condition = identifiedData.Condition
+	clothing.Material = identifiedData.Material
+	clothing.Color = identifiedData.Color
+	clothing.Style = identifiedData.Style
+	clothing.IdentifyStatus = "completed"
+	clothing.Status = "in_closet"
+	
+	// Add LLM metadata
+	clothing.LLMTotalTokenCount = &clothingLLMResponse.TotalTokenCount
+	clothing.LLMInputTokenCount = &clothingLLMResponse.InputTokenCount
+	clothing.LLMThoughtsTokenCount = &clothingLLMResponse.ThoughtsTokenCount
+	clothing.LLMOutputTokenCount = &clothingLLMResponse.OutputTokenCount
+	clothing.LLMThoughts = &clothingLLMResponse.Thoughts
+	clothing.LLMModel = &modelString
+
+	tx := db.Save(&clothing)
+	if tx.Error != nil {
+		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on saving identified clothing %v", payload.ClothingId))
+		return tx.Error
+	}
+	fmt.Printf("[Identify Clothing: %v] Identification finished successfully..", payload.ClothingId)
+	return nil
+}
+
+func saveClothingIdentifyFail(db *gorm.DB, clothing models.Clothing, msg string, shouldRetry bool) error {
+	clothing.IdentifyRetryTimes = clothing.IdentifyRetryTimes + 1
+	if !shouldRetry || clothing.IdentifyRetryTimes >= 3 {
+		clothing.IdentifyErrorMessage = &msg
+		clothing.IdentifyStatus = "failed"
+	}
+	tx := db.Save(&clothing)
+	if tx.Error != nil {
+		sentry.CaptureException(fmt.Errorf("[Fail Identify Clothing %v] Error on saving clothing for failed status", clothing.ID))
+		return tx.Error
+	}
+	return nil
+}
+
 func ScheduledQuizAlertTask(ctx context.Context, t *asynq.Task, db *gorm.DB, fbApp *firebase.App) error {
 
 	fmt.Printf("[Scheduled] Processing something\n")

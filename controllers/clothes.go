@@ -35,8 +35,12 @@ type CreateClothingIn struct {
 	Name         string  `json:"name" validate:"omitempty,max=100"`
 	FileName     *string `json:"file_name" validate:"required,max=200"`
 	Description  *string `json:"description" validate:"omitempty,max=500"`
-	ClothingType string  `json:"clothing_type" validate:"required,oneof=top bottom shoes accessory"` // e.g., top, bottom, shoes, accessory
+	ClothingType string  `json:"clothing_type" validate:"required,oneof=top bottom shoes accessory undefined"` // e.g., top, bottom, shoes, accessory
 	AddToCloset  *bool   `json:"add_to_closet" validate:"required"`
+}
+
+type IdentifyClothingIn struct {
+	FileName *string `json:"file_name" validate:"required,max=200"`
 }
 
 type GenerateTryOnIn struct {
@@ -54,17 +58,30 @@ type GenericResponse struct {
 
 // Response structs
 type ClothingResponse struct {
-	ID               uint    `json:"id"`
-	Name             string  `json:"name"`
-	Description      *string `json:"description"`
-	ClothingType     string  `json:"clothing_type"`
-	Status           string  `json:"status"`
-	ProcessingStatus string  `json:"processing_status"`
-	Uri              *string `json:"uri,omitempty"`
-	CreatedAt        string  `json:"created_at"`
-	UpdatedAt        string  `json:"updated_at"`
+	ID                  uint    `json:"id"`
+	Name                string  `json:"name"`
+	Description         *string `json:"description"`
+	ClothingType        string  `json:"clothing_type"`
+	Status              string  `json:"status"`
+	ProcessingStatus    string  `json:"processing_status"`
+	ProcessErrorMessage *string `json:"process_error_message,omitempty"`
+	Uri                 *string `json:"uri,omitempty"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
 }
 
+type ClothingDetailResponse struct {
+	ClothingResponse
+	Brand                *string  `json:"brand"`
+	Size                 *string  `json:"size"`
+	PriceUSD             *float64 `json:"price_usd"`
+	Condition            *string  `json:"condition"` // new, like new, good, fair, poor
+	Material             *string  `json:"material"`
+	Color                *string  `json:"color"`
+	Style                *string  `json:"style"`           // casual, formal, sporty, vintage, bohemian, chic, business, streetwear
+	IdentifyStatus       string   `json:"identify_status"` // idle, generating, completed, failed
+	IdentifyErrorMessage *string  `json:"identify_error_message,omitempty"`
+}
 type ClothingCreatedResponse struct {
 	ClothingResponse ClothingResponse `json:"clothes"`
 	FileUploadUrl    string           `json:"file_upload_url"`
@@ -93,6 +110,7 @@ type ClothesController struct {
 
 func (controller *ClothesController) ClothingRoutes(g *echo.Group) {
 	g.POST("/create", controller.CreateClothing)
+	g.POST("/identify", controller.IdentifyClothing)
 	g.POST("/tryon", controller.GenerateTryOn)
 	g.GET("/tryon/:id", controller.RetrieveTryOnGeneration)
 	g.GET("/list", controller.ListClothes)
@@ -202,6 +220,121 @@ func (controller *ClothesController) CreateClothing(c echo.Context) error {
 		}
 		fmt.Println("[Queue] Process clothing task submitted, Clothing ID: ", clothing.ID, " Task ID: ", info.ID)
 	}
+
+	// Prepare response
+	response := ClothingCreatedResponse{
+		ClothingResponse: ClothingResponse{
+			ID:               clothing.ID,
+			Name:             clothing.Name,
+			Description:      clothing.Description,
+			ClothingType:     clothing.ClothingType,
+			Status:           clothing.Status,
+			ProcessingStatus: clothing.ProcessingStatus,
+			CreatedAt:        clothing.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:        clothing.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		},
+		FileUploadUrl: uploadUrl,
+	}
+
+	return c.JSON(http.StatusCreated, response)
+}
+
+func (controller *ClothesController) IdentifyClothing(c echo.Context) error {
+	var req IdentifyClothingIn
+	if err := c.Bind(&req); err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	}
+
+	// Validate request
+	if err := c.Validate(req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	// Get user and db from context
+	user, ok := c.Get("currentUser").(models.UserAccount)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+	}
+	db, ok := c.Get("__db").(*gorm.DB)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database connection error"})
+	}
+	asynqClient, ok := c.Get("__asynqclient").(*asynq.Client)
+	if !ok {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Service is not available, please try again a bit later"})
+	}
+
+	if req.FileName == nil || *req.FileName == "" {
+		sentry.CaptureException(fmt.Errorf("Image was not provided when identifying clothing, user %v", user.ID))
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Sorry, it seems image was not provided, please try again"})
+	}
+	company := user.Memberships[0].Company
+	if string(company.Subscription) == "free" {
+		var totalClothingCount int64
+		if err := db.Model(&models.Clothing{}).Where("company_id = ?", company.ID).Count(&totalClothingCount).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get clothe data"})
+		}
+		fmt.Printf("[User %v] Free plan, clothe count: %v", user.ID, totalClothingCount)
+		if totalClothingCount >= 2 {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "You have reached the free limit of total 2 clothes, please subscribe"})
+		}
+	}
+
+	if company.EnforcedDailyClothingLimit != nil {
+		var dailyClothingCount int64
+		today := time.Now().UTC().Format("2006-01-02")
+		if err := db.Model(&models.Clothing{}).Where("company_id = ? AND DATE(created_at) = ?", company.ID, today).Count(&dailyClothingCount).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get clothe data"})
+		}
+		fmt.Printf("[User %v] Enforced daily limit, clothe count: %v", user.ID, dailyClothingCount)
+		if dailyClothingCount >= int64(*company.EnforcedDailyClothingLimit) {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": fmt.Sprintf("You have reached the limit of %v daily clothes. Please wait for the next day.", dailyClothingCount)})
+		}
+	}
+
+	clothing := models.Clothing{
+		Name:             "",          // Will be identified by LLM
+		ClothingType:     "undefined", // No clothing type input
+		OwnerID:          user.ID,
+		ProcessingStatus: "idle",
+		Status:           "temporary",
+		CompanyID:        user.Memberships[0].CompanyID,
+		IdentifyStatus:   "pending",
+	}
+
+	var bucketName = services.GetEnv("R2_BUCKET_NAME", "")
+	var uploadUrl string
+	var presignErr error
+	safeFileName := fmt.Sprintf("clothes/%s", *req.FileName)
+
+	uploadUrl, presignErr = controller.AWSService.PresignLink(context.Background(), bucketName, safeFileName)
+	clothing.ImageURL = &safeFileName
+	if presignErr != nil {
+		log.Printf("Unable to presign generate for clothing identification, %s", presignErr)
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Error while creating clothing identification with attachment",
+		})
+	}
+
+	// Save to database
+	if err := db.Create(&clothing).Error; err != nil {
+		sentry.CaptureException(err)
+		return err
+	}
+
+	// Create identify task
+	task, err := tasks.NewIdentifyClothingTask(clothing.ID)
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Sorry, could not start clothing identification, please try again"})
+	}
+	info, err := asynqClient.Enqueue(task, asynq.MaxRetry(3), asynq.Queue("generate"), asynq.ProcessIn(5*time.Second))
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Sorry, could not start clothing identification, please try again"})
+	}
+	fmt.Println("[Queue] Identify clothing task submitted, Clothing ID: ", clothing.ID, " Task ID: ", info.ID)
 
 	// Prepare response
 	response := ClothingCreatedResponse{

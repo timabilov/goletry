@@ -82,6 +82,9 @@ func main() {
 	mux.HandleFunc("generate:avatar", func(ctx context.Context, t *asynq.Task) error {
 		return tasks.ProcessAvatarTask(ctx, t, db, llmProcessor, awsService, app)
 	})
+	mux.HandleFunc("generate:identify_clothing", func(ctx context.Context, t *asynq.Task) error {
+		return tasks.IdentifyClothingTask(ctx, t, db, llmProcessor, awsService, app)
+	})
 
 	go runScheduler()
 	// Run the worker

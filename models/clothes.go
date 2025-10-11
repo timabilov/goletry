@@ -2,19 +2,41 @@ package models
 
 type Clothing struct {
 	JsonModel
-	Name                string      `json:"name"`
-	Description         *string     `gorm:"type:text" json:"description"`
-	ClothingType        string      `json:"clothing_type"` // e.g., top, bottom, shoes, accessory
-	Owner               UserAccount `json:"-"`
-	OwnerID             uint        `json:"-"`
-	CompanyID           uint        `json:"-"`
-	Company             Company     `json:"company"`
-	Status              string      `json:"status"`            // temporary, in_closet
-	ImageStatus         string      `json:"image_status"`      // draft, uploaded
-	ProcessingStatus    string      `json:"processing_status"` // idle, generating, completed, failed
-	ProcessRetryTimes   int         `json:"process_retry_times"`
-	ProcessErrorMessage *string     `json:"process_error_message"`
-	ImageURL            *string     `json:"image_url"`
+	Name        string   `json:"name"`
+	Description *string  `gorm:"type:text" json:"description"`
+	Brand       *string  `json:"brand"`
+	Size        *string  `json:"size"`
+	PriceUSD    *float64 `json:"price_usd"`
+	Condition   *string  `json:"condition"` // new, like new, good, fair, poor
+	Material    *string  `json:"material"`
+	Color       *string  `json:"color"`
+	Style       *string  `json:"style"` // casual, formal, sporty, vintage, bohemian, chic, business, streetwear
+
+	IdentifyStatus       string  `json:"identify_status"` // idle, generating, completed, failed
+	IdentifyErrorMessage *string `json:"identify_error_message"`
+	IdentifyRetryTimes   int     `json:"identify_retry_times"`
+
+	ClothingType string      `json:"clothing_type"` // e.g., top, bottom, shoes, accessory undefined(to be identified!)
+	Owner        UserAccount `json:"-"`
+	OwnerID      uint        `json:"-"`
+	CompanyID    uint        `json:"-"`
+	Company      Company     `json:"company"`
+	Status       string      `json:"status"`       // temporary, in_closet
+	ImageStatus  string      `json:"image_status"` // draft, uploaded
+
+	// Whitening background to make it e-commerce flat image of the garment
+	ProcessingStatus    string  `json:"processing_status"` // idle, generating, completed, failed
+	ProcessRetryTimes   int     `json:"process_retry_times"`
+	ProcessErrorMessage *string `json:"process_error_message"`
+	ImageURL            *string `json:"image_url"`
+
+	LLMTokenUsage         *int    `json:"llm_token_usage"`
+	LLMModel              *string `json:"llm_model"`
+	LLMInputTokenCount    *int32  `json:"llm_input_token_usage"`
+	LLMOutputTokenCount   *int32  `json:"llm_output_token_usage"`
+	LLMTotalTokenCount    *int32  `json:"llm_total_token_usage"`
+	LLMThoughtsTokenCount *int32  `json:"llm_thoughts_token_count"`
+	LLMThoughts           *string `json:"llm_thoughts"`
 }
 
 // Removed Folder and Question models - not needed for fashion AI
