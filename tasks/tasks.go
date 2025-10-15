@@ -811,7 +811,7 @@ func IdentifyClothingTask(
 		sentry.CaptureException(fmt.Errorf("[QUEUE] Error on retrieving clothing for identification %v", payload.ClothingId))
 		return res.Error
 	}
-	
+
 	time.Sleep(2 * time.Second) // wait for r2 to be ready
 	fileBytes, fileName, err := fetchR2File(awsService, clothing.ImageURL, "Clothing ID "+fmt.Sprint(payload.ClothingId))
 	if err != nil {
@@ -836,7 +836,7 @@ func IdentifyClothingTask(
 	}
 
 	fmt.Printf("[Identify Clothing: %v] Identifying clothing attributes..\n", payload.ClothingId)
-	model := services.Flash25
+	model := services.Pro25
 	modelString := model.String()
 	if clothing.Company.EnforcedLLMModel != nil {
 		model = services.LLMModelName(*clothing.Company.EnforcedLLMModel)
@@ -892,8 +892,8 @@ func IdentifyClothingTask(
 	clothing.Style = identifiedData.Style
 	clothing.ClothingType = identifiedData.ClothingType
 	clothing.IdentifyStatus = "completed"
-	clothing.Status = "in_closet"
-	
+	clothing.Status = "temporary"
+
 	// Add LLM metadata
 	clothing.LLMTotalTokenCount = &clothingLLMResponse.TotalTokenCount
 	clothing.LLMInputTokenCount = &clothingLLMResponse.InputTokenCount

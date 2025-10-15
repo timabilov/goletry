@@ -28,13 +28,7 @@ func runScheduler() {
 		cron string
 		task *asynq.Task
 		desc string
-	}{
-		{
-			cron: "0 10,14,18 * * *", // 10:00 AM, 2:00 PM, 6:00 PM daily
-			task: NewQuizAlertTask(),
-			desc: "Quiz alert notifications",
-		},
-	}
+	}{}
 
 	// Register all tasks
 	for _, t := range tasks {
@@ -44,7 +38,10 @@ func runScheduler() {
 		}
 		log.Printf("Registered task '%s' with ID: %s, cron: %s", t.desc, entryID, t.cron)
 	}
-
+	if len(tasks) == 0 {
+		log.Println("No tasks registered in the scheduler.")
+		return
+	}
 	log.Println("Starting scheduler...")
 	if err := scheduler.Run(); err != nil {
 		log.Fatalf("Scheduler failed: %v", err)
